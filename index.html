@@ -1,0 +1,2011 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AHAEE Simulator</title>
+<style>
+/* AHAEE Simulator v1.0 - Nyansapo Ennovates, KNUST Obuasi.
+   Layout: menu/tool bar, single-line diagram (left), operator panel (right), trend plot (bottom), status bar. */
+:root{
+  --bg:#e3e6eb; --panel:#fbfbfc; --panel2:#eff1f4; --line:#c6cbd3; --line2:#9ca3ae;
+  --fg:#1b1f27; --muted:#4f5765; --faint:#7d8492;
+  --accent:#4a3aa8; --accent-ink:#ffffff;
+  --ac:#2a2f38; --dc:#c62828; --solar:#e08a00; --hydro:#1565c0; --bio:#2e7d32; --okfh:#6a3fb5; --bess:#00897b; --load:#2a2f38;
+  --good:#2e7d32; --warn:#b26a00; --bad:#c62828;
+  --sky-day:#6fa8dc; --sky-night:#1c2440; --win:#f2b33d;
+  --f-disp:"Segoe UI",Tahoma,Arial,sans-serif;
+  --f-body:"Segoe UI",Tahoma,Arial,sans-serif;
+  --f-mono:Consolas,"Courier New",ui-monospace,monospace;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.4;padding-inline:0;}
+*{box-sizing:border-box}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.status{border-top:1px solid var(--line2);background:var(--panel2);padding:3px 16px;font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* kente strip — nod to the forum deck */
+.kente{height:5px;background:
+  repeating-linear-gradient(90deg,#e8b417 0 22px,#1b7a3e 22px 30px,#c8282e 30px 52px,#111 52px 58px,#e8b417 58px 64px,#1b7a3e 64px 86px,#111 86px 92px)}
+header.bar{display:flex;align-items:center;gap:14px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font-family:var(--f-disp);font-weight:700;font-size:18px;}
+.brand span{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav.tabs{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:3px;margin-left:auto}
+nav.tabs button{border:0;background:transparent;padding:6px 12px;border-radius:3px;cursor:pointer;font-family:var(--f-disp);font-weight:600;font-size:14px;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{background:var(--panel);color:var(--fg);box-shadow:inset 0 -2px 0 var(--accent)}
+.clockbox{display:flex;align-items:center;gap:8px}
+.clock{font-family:var(--f-mono);font-size:18px;font-weight:600;min-width:118px;text-align:right}
+.iconbtn{border:1px solid var(--line2);background:var(--panel2);border-radius:3px;height:32px;min-width:32px;padding:0 9px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.iconbtn:hover{border-color:var(--accent)}
+select.sel{border:1px solid var(--line2);background:var(--panel2);border-radius:3px;height:32px;padding:0 8px;cursor:pointer}
+
+main{min-height:0;position:relative}
+section.view{position:absolute;inset:0;display:none;min-height:0}
+section.view.on{display:grid}
+
+/* ---------- SYSTEM VIEW ---------- */
+#v-system{grid-template-columns:minmax(0,1fr) 316px;gap:0}
+.stage{display:grid;grid-template-rows:minmax(0,1fr) clamp(130px,19vh,190px);min-height:0;min-width:0;border-right:1px solid var(--line)}
+.schem{min-height:0;position:relative;padding:6px 10px 0}
+.schem svg{width:100%;height:100%;display:block}
+.trend{border-top:1px solid var(--line);position:relative;padding:6px 10px 6px}
+.trend canvas{width:100%;height:100%;display:block}
+.rail{display:flex;flex-direction:column;gap:10px;padding:12px;overflow:auto;min-height:0;background:var(--panel)}
+.rail h3{margin:0 0 6px;font-family:var(--f-disp);font-weight:600;font-size:12px;color:var(--muted)}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line2);border-radius:3px;overflow:hidden}
+.seg button{border:0;background:var(--panel2);padding:8px 6px;cursor:pointer;font-family:var(--f-disp);font-weight:600;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:inset 0 -2px 0 var(--accent);font-weight:700}
+.scen{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.scen button{border:1px solid var(--line2);background:var(--panel2);border-radius:3px;padding:7px 8px;cursor:pointer;text-align:left;font-size:13px;line-height:1.2;display:flex;justify-content:space-between;gap:6px;align-items:center}
+.scen button:hover{border-color:var(--accent)}
+.scen kbd{font-family:var(--f-mono);font-size:11px;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:0 4px}
+.sitesel{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sitesel select{width:100%}
+.kp{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kp div{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:6px 8px}
+.kp small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase}
+.kp b{font-family:var(--f-mono);font-size:17px;font-weight:600}
+.scope{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:6px 8px}
+.scope canvas{width:100%;height:58px;display:block}
+.scope .row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+table.cmp th{font-weight:500;color:var(--muted);text-align:right;font-size:11px;padding:2px 4px}
+table.cmp th:first-child{text-align:left}
+table.cmp td{padding:3px 4px;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;border-top:1px solid var(--line)}
+table.cmp td:first-child{text-align:left;font-family:var(--f-body)}
+td.win{color:var(--good)}
+.log{flex:1;min-height:120px;overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:6px 8px;font-size:12.5px}
+.log p{margin:0 0 6px;padding-left:8px;border-left:3px solid var(--line2)}
+.log p time{font-family:var(--f-mono);color:var(--faint);font-size:11px;margin-right:6px}
+.log p.act{border-color:var(--accent)} .log p.plan{border-color:var(--hydro)} .log p.warn{border-color:var(--warn)} .log p.bad{border-color:var(--bad)} .log p.ok{border-color:var(--good)}
+
+/* SVG schematic styling */
+.card{fill:var(--panel);stroke:var(--line2);stroke-width:1.2}
+.cardt{font-family:var(--f-disp);font-weight:700;font-size:17px;fill:var(--fg)}
+.cards{font-family:var(--f-body);font-size:12.5px;fill:var(--muted)}
+.val{font-family:var(--f-mono);font-weight:600;font-size:17px;fill:var(--fg)}
+.vals{font-family:var(--f-body);font-size:12.5px;fill:var(--muted)}
+.ifbox{fill:var(--panel2);stroke:var(--line2)}
+.ift{font-family:var(--f-body);font-size:12.5px;fill:var(--muted)}
+.busac{stroke:var(--ac);stroke-width:5;stroke-linecap:round;fill:none}
+.busdc{stroke:var(--dc);stroke-width:5;stroke-linecap:round;fill:none}
+.wire{stroke:var(--line2);stroke-width:3;fill:none;stroke-linecap:round}
+.ctl{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:4 5;opacity:.75}
+.band{fill:color-mix(in srgb,var(--accent) 7%,var(--panel));stroke:var(--accent);stroke-opacity:.45;stroke-dasharray:6 4}
+.mod{fill:var(--panel);stroke:var(--line2)}
+.bandt{font-family:var(--f-disp);font-weight:700;font-size:13px;fill:var(--accent)}
+.lbl{font-family:var(--f-disp);font-weight:600;font-size:12.5px;fill:var(--muted)}
+.pill{font-family:var(--f-disp);font-weight:700;font-size:12px;}
+.p-solar{fill:var(--solar)} .p-hydro{fill:var(--hydro)} .p-bio{fill:var(--bio)} .p-okfh{fill:var(--okfh)} .p-bess{fill:var(--bess)} .p-ac{fill:var(--ac)} .p-dc{fill:var(--dc)} .p-load{fill:var(--win)}
+.dim{opacity:.35}
+
+/* ---------- LAB ---------- */
+#v-lab{grid-template-columns:minmax(0,1fr) 340px}
+.labstage{display:grid;grid-template-rows:minmax(0,1fr) 190px;min-height:0;min-width:0;border-right:1px solid var(--line)}
+.labstage canvas{width:100%;height:100%;display:block}
+.labmain{min-height:0;position:relative}
+.labscope{border-top:1px solid var(--line);padding:6px 10px}
+.ctrl{display:grid;gap:4px}
+.ctrl label{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.ctrl label b{color:var(--fg);font-family:var(--f-mono);font-weight:600}
+.ctrl input[type=range]{width:100%;accent-color:var(--accent)}
+.ctrl label.chk{display:flex;justify-content:flex-start;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--fg)}
+.chk input{accent-color:var(--accent);width:16px;height:16px}
+.note{font-size:12.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:8px 10px}
+.note b{color:var(--fg)}
+.bars{display:grid;gap:4px}
+.barrow{display:grid;grid-template-columns:118px 1fr 70px;gap:6px;align-items:center;font-size:12.5px}
+.barrow i{display:block;height:9px;border-radius:2px;min-width:2px}
+.barrow .bv{font-family:var(--f-mono);text-align:right;font-size:11.5px}
+.eq{font-family:var(--f-mono);font-size:12px;color:var(--fg)}
+
+/* ---------- COMPARE ---------- */
+#v-cmp{overflow:auto;display:none;padding:16px;align-content:start;gap:14px}
+#v-cmp.on{display:grid}
+.cmpgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:12px 14px;min-width:0}
+.box h2{margin:0 0 4px;font-family:var(--f-disp);font-weight:700;font-size:20px;}
+.box h2 small{font-family:var(--f-body);font-weight:400;font-size:13px;color:var(--muted);margin-left:8px;letter-spacing:0}
+.box canvas{width:100%;height:170px;display:block}
+.lead{max-width:80ch;color:var(--muted);margin:0}
+.lead b{color:var(--fg)}
+.bench{display:grid;gap:8px}
+.benchrow{display:grid;grid-template-columns:minmax(150px,220px) 1fr 1fr 90px;gap:10px;align-items:center;font-size:13px}
+.benchrow .b{position:relative;height:18px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.benchrow .b i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+.benchrow .b em{position:absolute;right:6px;top:0;font-style:normal;font-family:var(--f-mono);font-size:11.5px;line-height:18px}
+.benchrow .d{font-family:var(--f-mono);text-align:right}
+.benchhead{font-size:11px;color:var(--muted);text-transform:uppercase}
+.prog{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent)}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:7px 14px;cursor:pointer;font-family:var(--f-disp);font-weight:600;font-size:14px}
+.btn.ghost{background:transparent;color:var(--fg);border-color:var(--line2)}
+
+/* ---------- MODEL ---------- */
+#v-model{overflow:auto;display:none;padding:18px 16px 30px}
+#v-model.on{display:block}
+.doc{max-width:1100px;margin:0 auto;display:grid;gap:14px}
+.doc h2{font-family:var(--f-disp);font-weight:700;font-size:22px;margin:0;text-wrap:balance}
+.doc h3{font-family:var(--f-disp);font-weight:600;font-size:16px;margin:0 0 6px;}
+.doc p{margin:0 0 6px;max-width:75ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.ptab{width:100%;border-collapse:collapse;font-size:13px}
+.ptab td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:top}
+.ptab td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.ptab td:first-child{color:var(--muted);width:44%}
+.keys{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.keys kbd{font-family:var(--f-mono);border:1px solid var(--line2);border-radius:3px;padding:0 5px;color:var(--fg)}
+
+.banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);border-radius:3px;padding:6px 14px;font-family:var(--f-disp);font-weight:600;font-size:15px;pointer-events:none;opacity:0;transition:opacity .4s;max-width:90%;text-align:center}
+.banner.show{opacity:1}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1500px){ .brand span{display:none} }
+@media (max-width: 1100px){
+  #v-system,#v-lab{grid-template-columns:1fr;overflow:auto;align-content:start}
+  .stage,.labstage{border-right:0;grid-template-rows:auto 168px}
+  .schem svg{height:auto;aspect-ratio:1200/690}
+  .labmain{height:420px}
+  .rail{overflow:visible}
+  .log{max-height:260px}
+}
+@media (max-width: 700px){
+  header.bar{gap:8px;padding:8px 16px}
+  .brand span{display:none}
+  nav.tabs{margin-left:0;order:3;width:100%;overflow-x:auto}
+  nav.tabs button{flex:1;padding:6px 6px;font-size:13px}
+  .cmpgrid{grid-template-columns:1fr}
+  .benchrow{grid-template-columns:1fr 1fr;}
+  .benchrow .lab{grid-column:1 / -1}
+  .schem{padding:6px 16px 0;overflow-x:auto}
+  .schem svg{min-width:860px}
+  .trend,.labscope{padding-inline:16px}
+  .rail{padding:12px 16px}
+  #v-cmp{padding:16px}
+  .labmain{height:340px}
+}
+@media (prefers-reduced-motion: reduce){ .banner{transition:none} }
+</style>
+</head>
+<body>
+
+
+<div class="app" id="app">
+  <div>
+    
+    <header class="bar">
+      <div class="brand"><b>AHAEE Simulator</b><span>v1.0 | Nyansapo Ennovates, KNUST Obuasi | Site: Obuasi, Ghana</span></div>
+      <nav class="tabs" role="tablist" aria-label="Views">
+        <button role="tab" id="t-system" aria-selected="true" data-v="system">System</button>
+        <button role="tab" id="t-lab" aria-selected="false" data-v="lab">OKFH Lab</button>
+        <button role="tab" id="t-cmp" aria-selected="false" data-v="cmp">Controller comparison</button>
+        <button role="tab" id="t-model" aria-selected="false" data-v="model">Parameters</button>
+      </nav>
+      <div class="clockbox">
+        <span class="clock" id="clock">D1 06:00</span>
+        <button class="iconbtn" id="play" aria-label="Pause">Pause</button>
+        <select class="sel" id="speed" aria-label="Simulation speed">
+          <option value="5">x300 (5 min/s)</option>
+          <option value="20" selected>x1200 (20 min/s)</option>
+          <option value="60">x3600 (1 h/s)</option>
+          <option value="180">x10800 (3 h/s)</option>
+        </select>
+        <button class="iconbtn" id="fs" aria-label="Full screen" title="Full screen (F)">Full screen</button>
+      </div>
+    </header>
+  </div>
+  <main>
+    <section class="view on" id="v-system" aria-labelledby="t-system">
+      <div class="stage">
+        <div class="schem" id="schem"></div>
+        <div class="trend"><canvas id="trend"></canvas></div>
+      </div>
+      <aside class="rail">
+        <div>
+          <h3>Controller</h3>
+          <div class="seg" id="ctlSeg">
+            <button id="ctl-ai" aria-pressed="true" data-c="ai">AI (MPC)</button>
+            <button id="ctl-rule" aria-pressed="false" data-c="rule">Rule-based</button>
+          </div>
+        </div>
+        <div>
+          <h3>Test events</h3>
+          <div class="scen">
+            <button id="ev-cloud" data-e="cloud">Cloud front <kbd>C</kbd></button>
+            <button id="ev-spike" data-e="spike">Load spike <kbd>S</kbd></button>
+            <button id="ev-trip" data-e="trip">Gasifier trip <kbd>T</kbd></button>
+            <button id="ev-wear" data-e="wear">Bearing wear <kbd>W</kbd></button>
+            <button id="ev-rain" data-e="rain">Rain, 36 h <kbd>R</kbd></button>
+            <button id="ev-reset" data-e="reset">Restart <kbd>0</kbd></button>
+          </div>
+        </div>
+        <div>
+          <h3>Site</h3>
+          <div class="sitesel">
+            <select class="sel" id="preset" aria-label="System sizing">
+              <option value="pilot">Pilot (deck sizing)</option>
+              <option value="village">Village cluster</option>
+            </select>
+            <select class="sel" id="season" aria-label="Season">
+              <option value="rainy">Rainy season</option>
+              <option value="dry">Dry / Harmattan</option>
+            </select>
+          </div>
+        </div>
+        <div class="kp">
+          <div><small>Demand</small><b id="k-load">—</b></div>
+          <div><small>Battery SoC</small><b id="k-soc">—</b></div>
+          <div><small>Main source</small><b id="k-ren">—</b></div>
+          <div><small>Supply</small><b id="k-sup">—</b></div>
+        </div>
+        <div class="scope">
+          <div class="row"><span>AC bus frequency</span><span class="mono" id="k-f">50.00 Hz</span></div>
+          <canvas id="fscope"></canvas>
+        </div>
+        <div>
+          <h3>Totals since start (same inputs)</h3>
+          <table class="cmp" id="cmpTbl"></table>
+        </div>
+        <div style="display:flex;flex-direction:column;min-height:0;flex:1">
+          <h3 id="logTitle">Event log</h3>
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="view" id="v-lab" aria-labelledby="t-lab">
+      <div class="labstage">
+        <div class="labmain"><canvas id="labc"></canvas></div>
+        <div class="labscope"><canvas id="labscope"></canvas></div>
+      </div>
+      <aside class="rail">
+        <div class="ctrl">
+          <h3>Vibration source</h3>
+          <select class="sel" id="lx" aria-label="Vibration source"></select>
+          <div class="cards" id="lxdesc" style="font-size:12.5px;color:var(--muted)"></div>
+        </div>
+        <div class="ctrl">
+          <label for="lamp"><span>Excitation amplitude</span> <b id="lampv"></b></label>
+          <input type="range" id="lamp" min="0.02" max="0.6" step="0.01">
+        </div>
+        <div class="ctrl">
+          <label for="lfp"><span>Pole natural freq. f<sub>n</sub></span> <b id="lfpv"></b></label>
+          <input type="range" id="lfp" min="1" max="30" step="0.1">
+          <label class="chk"><input type="checkbox" id="ltune"> <span>Auto-tune f<sub>n</sub> (AI)</span></label>
+        </div>
+        <div class="ctrl">
+          <label for="lrl"><span>Load resistance R<sub>L</sub></span> <b id="lrlv"></b></label>
+          <input type="range" id="lrl" min="1.7" max="4" step="0.01">
+          <label class="chk"><input type="checkbox" id="lmppt"> <span>Auto-tune R<sub>L</sub> (AI)</span></label>
+        </div>
+        <div class="kp">
+          <div><small>Avg power / unit</small><b id="lp">—</b></div>
+          <div><small>Peak coil EMF</small><b id="lv">—</b></div>
+          <div><small>Power density</small><b id="lpd">—</b></div>
+          <div><small>Sensor nodes / unit</small><b id="lnodes">—</b></div>
+        </div>
+        <div>
+          <h3>Power balance (avg)</h3>
+          <div class="bars" id="lbars"></div>
+        </div>
+        <div class="note" id="lnote"></div>
+      </aside>
+    </section>
+
+    <section class="view" id="v-cmp" aria-labelledby="t-cmp">
+      <p class="lead">Both controllers run in parallel on the same plant, weather and load. Rule-based: gasifier ON at SoC 30 %, OFF at 80 %, load-following. AI (MPC): 36 h forecast, re-plan every 15 min, gasifier at rated output only.</p>
+      <div class="cmpgrid">
+        <div class="box"><h2>AI (MPC) <small>live</small></h2><canvas id="c-ai"></canvas><table class="cmp" id="ct-ai"></table></div>
+        <div class="box"><h2>Rule-based <small>live</small></h2><canvas id="c-rule"></canvas><table class="cmp" id="ct-rule"></table></div>
+      </div>
+      <div class="box">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <h2>14-day run <small id="benchMeta"></small></h2>
+          <div style="display:flex;gap:8px;align-items:center"><select class="sel" id="benchPreset" aria-label="Site for the run"><option value="village" selected>Village cluster</option><option value="pilot">Pilot</option></select><select class="sel" id="benchSeed" aria-label="Weather year"><option value="11">Weather seed 11</option><option value="23">Weather seed 23</option><option value="37">Weather seed 37</option></select><button class="btn" id="benchRun">Run</button></div>
+        </div>
+        <div class="prog" style="margin:8px 0"><i id="benchProg"></i></div>
+        <div class="bench" id="benchOut"><p class="lead">Press Run.</p></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-model" aria-labelledby="t-model"><div class="doc" id="modelDoc"></div></section>
+    <div class="banner" id="banner"></div>
+  </main>
+  <footer class="status" id="status">Ready</footer>
+</div>
+<script>
+// ===================================================================
+// OKFH — Omnidirectional Kinetic Flux Harvester : physics model
+// 2-D lumped model:  base excitation -> cantilever pole (SDOF, tunable)
+//   -> spherical bowl capsule (tilt + translation) -> NdFeB orb on
+//   ferrofluid film (viscous) with repelling rim (contactless spring)
+//   -> 2 orthogonal coil sets (Faraday EMF = k * v) -> resistive load.
+// All units SI.
+// ===================================================================
+(function (root) {
+  const G = 9.81;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const OKFH_DEFAULTS = {
+    m: 0.061,        // kg   Ø25 mm N42 NdFeB sphere
+    rOrb: 0.0125,    // m
+    Rb: 0.035,       // m    bowl radius of curvature (orb-centre path)
+    rWall: 0.026,    // m    rim-magnet zone (orb-centre radius)
+    rimF0: 0.30,     // N    rim repulsion at gap = lambda
+    rimLam: 0.004,   // m
+    cv: 0.004,       // N·s/m ferrofluid film viscous damping
+    k: 3.0,          // V·s/m transduction per axis (N·dΦ/dx)
+    Rc: 400,         // Ω    coil resistance per axis
+    RL: 2600,        // Ω    load resistance (set by power conditioner)
+    fp: 2.6,         // Hz   pole natural frequency (tunable)
+    zp: 0.03,        //      pole damping ratio
+    Lp: 0.45,        // m    pole length
+    capVol: 380e-6,  // m^3  capsule + coil envelope (≈ Ø90 mm sphere)
+  };
+
+  // ---- excitation presets (base acceleration, m/s^2) -----------------
+  const EXCITATIONS = {
+    truck: {
+      name: 'Toll plaza – heavy trucks', short: 'Truck plaza',
+      amp: 0.15, unit: 'g peak per truck', tune: 3.0,
+      desc: 'Intermittent ground waves from decelerating trucks (2–15 Hz content, 0.05–0.3 g near the slab).'
+    },
+    machine: {
+      name: 'Factory pump / compressor (1480 rpm)', short: 'Machine mount',
+      amp: 0.30, unit: 'g at 24.7 Hz', tune: 24.7,
+      desc: 'Continuous rotating-machine vibration at shaft speed plus harmonics.'
+    },
+    genset: {
+      name: 'Biomass gas-engine mount (1500 rpm)', short: 'Gas-engine mount',
+      amp: 0.50, unit: 'g at 25 Hz', tune: 25.0,
+      desc: 'The AHAEE gasifier engine itself — vibrates whenever it runs.'
+    },
+    foot: {
+      name: 'Footbridge / market footfall', short: 'Footfall',
+      amp: 0.08, unit: 'g at ~2 Hz', tune: 2.0,
+      desc: 'Low-frequency pedestrian loading, 1.7–2.3 Hz.'
+    },
+  };
+
+  function makeExciter(type, amp, seed) {
+    const rnd = mulberry32(seed || 7);
+    const A = amp * G;
+    let nextEvent = 0.5, events = [];
+    let nx = 0, ny = 0; // coloured noise
+    const fFoot = 1.7 + rnd() * 0.6;
+    return function (t, dt) {
+      // background broadband (low-passed white noise)
+      const a = Math.exp(-dt * 60);
+      nx = a * nx + (1 - a) * (rnd() - 0.5) * 2;
+      ny = a * ny + (1 - a) * (rnd() - 0.5) * 2;
+      let ax = 0, ay = 0, intensity = 0;
+      if (type === 'truck') {
+        if (t >= nextEvent) {
+          const dir = rnd() * Math.PI * 2;
+          events.push({ t0: t, dir, A: A * (0.5 + rnd() * 0.8), dur: 1.2 + rnd() * 1.2,
+            ph: [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28], f: [2.5 + rnd(), 7 + rnd() * 3, 13 + rnd() * 4] });
+          nextEvent = t + 3 + rnd() * 6;
+        }
+        events = events.filter(e => t - e.t0 < e.dur + 0.5);
+        for (const e of events) {
+          const tau = t - e.t0;
+          const env = Math.sin(Math.PI * Math.min(1, tau / e.dur)) ** 2 * (tau < e.dur ? 1 : 0);
+          const s = 0.55 * Math.sin(2 * Math.PI * e.f[0] * tau + e.ph[0]) + 0.3 * Math.sin(2 * Math.PI * e.f[1] * tau + e.ph[1]) + 0.15 * Math.sin(2 * Math.PI * e.f[2] * tau + e.ph[2]);
+          const s2 = 0.4 * Math.sin(2 * Math.PI * e.f[0] * 1.13 * tau + e.ph[2]);
+          ax += e.A * env * (s * Math.cos(e.dir) - s2 * Math.sin(e.dir));
+          ay += e.A * env * (s * Math.sin(e.dir) + s2 * Math.cos(e.dir));
+          intensity = Math.max(intensity, env);
+        }
+        ax += 0.04 * A * nx; ay += 0.04 * A * ny;
+      } else if (type === 'machine' || type === 'genset') {
+        const f = type === 'machine' ? 24.67 : 25.0;
+        const w = 2 * Math.PI * f;
+        ax = A * (Math.cos(w * t) + 0.25 * Math.cos(2 * w * t + 0.7)) + 0.15 * A * nx;
+        ay = A * (0.7 * Math.sin(w * t) + 0.2 * Math.sin(2 * w * t + 1.9)) + 0.15 * A * ny;
+        intensity = 1;
+      } else { // footfall
+        const w = 2 * Math.PI * fFoot;
+        const gait = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.07 * t);
+        ax = A * gait * (Math.sin(w * t) + 0.2 * Math.sin(2 * w * t)) + 0.1 * A * nx;
+        ay = A * gait * 0.6 * Math.sin(w * t / 2 + 0.4) + 0.1 * A * ny;
+        intensity = gait;
+      }
+      return [ax, ay, intensity];
+    };
+  }
+
+  // ---- the harvester --------------------------------------------------
+  function createOKFH(opts) {
+    const p = Object.assign({}, OKFH_DEFAULTS, opts || {});
+    const s = {
+      p, t: 0,
+      u: [0, 0], ud: [0, 0],       // pole tip displacement / velocity (rel. to base)
+      x: [0.002, 0], v: [0, 0],    // orb position / velocity (rel. to bowl)
+      aBase: [0, 0], aTip: [0, 0], intensity: 0,
+      emf: [0, 0], i: [0, 0], pLoad: 0,
+      // energy accumulators (J)
+      E: { load: 0, copper: 0, viscous: 0, rimHits: 0 },
+      rimHit: 0,
+    };
+    let exciter = makeExciter('truck', EXCITATIONS.truck.amp, 11);
+    s.setExcitation = function (type, amp, seed) { exciter = makeExciter(type, amp, seed || 11); };
+
+    s.step = function (dt) {
+      const P = s.p;
+      const [ax, ay, inten] = exciter(s.t, dt);
+      s.aBase[0] = ax; s.aBase[1] = ay; s.intensity = inten;
+      // pole (relative coords): u'' = -a_base - 2ζω u' - ω² u
+      const wp = 2 * Math.PI * P.fp;
+      for (let d = 0; d < 2; d++) {
+        const aRel = -s.aBase[d] - 2 * P.zp * wp * s.ud[d] - wp * wp * s.u[d];
+        s.ud[d] += aRel * dt; s.u[d] += s.ud[d] * dt;
+        s.aTip[d] = s.aBase[d] + aRel;
+      }
+      // orb
+      const w0sq = G / P.Rb;
+      const ce = (P.k * P.k) / (P.Rc + P.RL);
+      const r = Math.hypot(s.x[0], s.x[1]) || 1e-9;
+      let gap = Math.max(0.001, P.rWall - r);
+      const Frim = P.rimF0 * Math.pow(P.rimLam / gap, 3);
+      for (let d = 0; d < 2; d++) {
+        const theta = 1.5 * s.u[d] / P.Lp;
+        const acc = -w0sq * s.x[d] + G * theta - s.aTip[d]
+          - ((P.cv + ce) / P.m) * s.v[d] - (Frim / P.m) * (s.x[d] / r);
+        s.v[d] += acc * dt;
+      }
+      for (let d = 0; d < 2; d++) s.x[d] += s.v[d] * dt;
+      // hard stop (should rarely engage)
+      const r2 = Math.hypot(s.x[0], s.x[1]);
+      const rHard = P.rWall - 0.0006;
+      if (r2 > rHard) {
+        const nx = s.x[0] / r2, ny = s.x[1] / r2;
+        s.x[0] = nx * rHard; s.x[1] = ny * rHard;
+        const vn = s.v[0] * nx + s.v[1] * ny;
+        if (vn > 0) { s.v[0] -= 1.6 * vn * nx; s.v[1] -= 1.6 * vn * ny; }
+      }
+      if (gap < 0.0035) s.rimHit = 1;
+      // electrical
+      let pl = 0;
+      for (let d = 0; d < 2; d++) {
+        s.emf[d] = P.k * s.v[d];
+        s.i[d] = s.emf[d] / (P.Rc + P.RL);
+        pl += s.i[d] * s.i[d] * P.RL;
+        s.E.copper += s.i[d] * s.i[d] * P.Rc * dt;
+        s.E.viscous += P.cv * s.v[d] * s.v[d] * dt;
+      }
+      s.pLoad = pl; s.E.load += pl * dt;
+      s.t += dt;
+    };
+    s.reset = function () {
+      s.t = 0; s.u = [0, 0]; s.ud = [0, 0]; s.x = [0.002, 0]; s.v = [0, 0];
+      s.E = { load: 0, copper: 0, viscous: 0, rimHits: 0 };
+    };
+    s.optimalRL = function () { return P_opt(s.p); };
+    return s;
+  }
+  // classic result: for a velocity-driven source with mech. damping cv,
+  // R_L,opt = Rc + k²/cv  (maximises load power at resonance)
+  function P_opt(p) { return p.Rc + (p.k * p.k) / p.cv; }
+
+  // run a preset for N seconds, return mean load power (W)
+  function benchmark(type, amp, fp, RL, seconds, seed) {
+    const h = createOKFH({ fp, RL });
+    h.setExcitation(type, amp, seed || 3);
+    const dt = 0.0002, n = Math.round(seconds / dt);
+    let warm = Math.round(4 / dt);
+    for (let i = 0; i < warm; i++) h.step(dt);
+    const e0 = h.E.load;
+    for (let i = 0; i < n; i++) h.step(dt);
+    return (h.E.load - e0) / seconds;
+  }
+
+  const api = { createOKFH, OKFH_DEFAULTS, EXCITATIONS, benchmark, P_opt, mulberry32 };
+  if (typeof module !== 'undefined') module.exports = api; else root.OKFH = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+// ===================================================================
+// AHAEE hybrid mini-grid model — 1-minute time step
+// Sources: Solar PV (DC bus), Biomass gasifier-genset (AC bus),
+// Micro-hydro w/ ELC (AC bus), BESS (DC bus), OKFH sensor-power layer.
+// Interlink: bidirectional DC/AC converter. Loads on AC bus.
+// Two controllers run on identical weather/load: AI (predictive, MPC)
+// and Conventional (SoC-threshold, load-following).
+// ===================================================================
+(function (root) {
+  const mulberry32 = (root.OKFH && root.OKFH.mulberry32) || (typeof require !== 'undefined' ? require('./okfh.js').mulberry32 : null);
+  const MIN_PER_DAY = 1440;
+
+  const SITE = { name: 'Obuasi, Ghana', lat: 6.2, lon: -1.66 };
+
+  const PRESETS = {
+    pilot: {
+      label: 'Pilot (deck sizing)',
+      note: '5 kWh/day clinic + households (sizing table, slide 12)',
+      loadKWhDay: 5, pvKWp: 1.5, bessKWh: 20, bessKW: 5, gasKW: 5.5, hydroKW: 0.1, interKW: 5,
+      okfhUnits: 12,
+    },
+    village: {
+      label: 'Village cluster (scaled)',
+      note: '≈60 kWh/day: 80 homes, clinic, school, agro-mill, streetlights',
+      loadKWhDay: 60, pvKWp: 14, bessKWh: 60, bessKW: 15, gasKW: 10, hydroKW: 0.8, interKW: 15,
+      okfhUnits: 40,
+    },
+  };
+
+  // load shape (fraction of daily energy per hour) for 4 categories
+  const SHAPES = {
+    residential: [2, 1.6, 1.5, 1.5, 1.8, 3, 4.5, 4, 3, 2.5, 2.4, 2.5, 2.8, 2.6, 2.5, 2.8, 3.5, 5.5, 9.5, 11, 10.5, 9, 6.5, 3.5],
+    commercial: [1, 1, 1, 1, 1, 1.5, 3, 5, 6.5, 7, 7, 7, 6.8, 6.8, 7, 7, 7, 7.2, 7, 5.5, 3.5, 2, 1.2, 1],
+    industrial: [0.3, 0.3, 0.3, 0.3, 0.3, 0.5, 2, 6, 10, 11, 11, 10, 7, 9, 11, 10.5, 8, 3, 0.8, 0.3, 0.3, 0.3, 0.3, 0.3],
+    community: [5.5, 5.5, 5.5, 5.5, 5.5, 5, 3.5, 3, 4, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 4, 3.5, 3, 4.5, 5.5, 5.5, 5.5, 5.5, 5.5],
+  };
+  const SHARE = { residential: 0.38, commercial: 0.17, industrial: 0.2, community: 0.25 };
+  const CATS = ['residential', 'commercial', 'industrial', 'community'];
+  for (const c of CATS) { const s = SHAPES[c].reduce((a, b) => a + b, 0); SHAPES[c] = SHAPES[c].map(v => v / s); }
+
+  // ---------------- sun & PV ----------------
+  function solarCosZ(doy, minuteOfDay) {
+    const decl = 23.45 * Math.sin(2 * Math.PI * (284 + doy) / 365) * Math.PI / 180;
+    const B = 2 * Math.PI * (doy - 81) / 364;
+    const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+    const st = minuteOfDay / 60 + (4 * SITE.lon + eot) / 60; // Ghana = UTC+0
+    const ha = (15 * (st - 12)) * Math.PI / 180;
+    const lat = SITE.lat * Math.PI / 180;
+    return { cz: Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha), st };
+  }
+  function clearGHI(cz) { return cz <= 0.01 ? 0 : 1098 * cz * Math.exp(-0.057 / cz) * 0.86; } // Haurwitz × tropical turbidity
+  function pvPower(kWp, G, Ta) {
+    const Tc = Ta + (45 - 20) / 800 * G; // NOCT 45 °C
+    const p = kWp * (G / 1000) * (1 - 0.0037 * (Tc - 25)) * 0.88 * 0.98; // losses 12 %, MPPT 98 %
+    return { p: Math.max(0, p), Tc };
+  }
+
+  // ---------------- world (weather + demand), deterministic -------------
+  function buildWorld(opts) {
+    const days = opts.days || 4, seed = opts.seed || 2026, season = opts.season || 'rainy';
+    const doy0 = season === 'dry' ? 20 : 280; // Jan (harmattan) | early Oct (minor rains)
+    const rnd = mulberry32(seed);
+    const N = days * MIN_PER_DAY;
+    const ghi = new Float32Array(N), ghiClear = new Float32Array(N), kt = new Float32Array(N), ta = new Float32Array(N);
+    const loadBase = { residential: new Float32Array(N), commercial: new Float32Array(N), industrial: new Float32Array(N), community: new Float32Array(N) };
+    // daily regimes (Markov)
+    const regimes = [];
+    const P = season === 'dry'
+      ? { clear: [0.55, 0.35, 0.08, 0.02], partly: [0.45, 0.4, 0.12, 0.03], overcast: [0.3, 0.4, 0.25, 0.05], rain: [0.3, 0.4, 0.2, 0.1] }
+      : { clear: [0.25, 0.45, 0.2, 0.1], partly: [0.2, 0.45, 0.22, 0.13], overcast: [0.12, 0.38, 0.3, 0.2], rain: [0.12, 0.33, 0.3, 0.25] };
+    const names = ['clear', 'partly', 'overcast', 'rain'];
+    let reg = season === 'dry' ? 'clear' : 'partly';
+    for (let d = 0; d < days; d++) {
+      if (d > 0) { const r = rnd(); const pr = P[reg]; let acc = 0; for (let i = 0; i < 4; i++) { acc += pr[i]; if (r < acc) { reg = names[i]; break; } } }
+      regimes.push(reg);
+    }
+    if (opts.forceRegimes) opts.forceRegimes.forEach((r, i) => { if (r && i < days) regimes[i] = r; });
+    const base = { clear: 0.93, partly: 0.72, overcast: 0.42, rain: 0.22 };
+    const vol = { clear: 0.04, partly: 0.22, overcast: 0.12, rain: 0.1 };
+    let ar = 0, cloud = 0, cloudLeft = 0;
+    for (let i = 0; i < N; i++) {
+      const d = Math.floor(i / MIN_PER_DAY), m = i % MIN_PER_DAY;
+      const rg = regimes[d];
+      ar = 0.985 * ar + 0.015 * (rnd() - 0.5) * 2;
+      if (cloudLeft <= 0 && rnd() < (rg === 'partly' ? 0.02 : rg === 'clear' ? 0.002 : 0.008)) { cloudLeft = 4 + rnd() * 25; cloud = 0.35 + rnd() * 0.45; }
+      let k = base[rg] + vol[rg] * ar * 3;
+      // afternoon convective build-up in the rainy season
+      if (season === 'rainy' && m > 14 * 60 && m < 17 * 60 && (rg === 'partly' || rg === 'overcast')) k -= 0.12;
+      if (cloudLeft > 0) { k *= (1 - cloud); cloudLeft--; }
+      k = Math.max(0.05, Math.min(1.02, k));
+      const { cz } = solarCosZ(doy0 + d, m);
+      const gc = clearGHI(cz);
+      ghiClear[i] = gc; kt[i] = k; ghi[i] = gc * k;
+      const tmax = season === 'dry' ? 33 : 30, tmin = season === 'dry' ? 21 : 22.5;
+      ta[i] = tmin + (tmax - tmin) * Math.max(0, Math.sin(Math.PI * (m / 60 - 6.5) / 14)) * (0.6 + 0.4 * k);
+    }
+    // demand: per-category profile × day noise × minute noise + motor events
+    for (const c of CATS) {
+      let n = 0;
+      for (let i = 0; i < N; i++) {
+        const d = Math.floor(i / MIN_PER_DAY), m = i % MIN_PER_DAY;
+        const h = m / 60, h0 = Math.floor(h), fr = h - h0;
+        const sh = SHAPES[c][h0] * (1 - fr) + SHAPES[c][(h0 + 1) % 24] * fr; // fraction / hour
+        n = 0.97 * n + 0.03 * (rnd() - 0.5) * 2;
+        loadBase[c][i] = Math.max(0, sh * (1 + 0.35 * n * 3)); // per-unit-of-daily-kWh, kW
+      }
+    }
+    // stochastic mill / welding motor events (industrial)
+    const motor = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const m = i % MIN_PER_DAY;
+      if (m > 8 * 60 && m < 17 * 60 && rnd() < 0.006) { const len = 10 + Math.floor(rnd() * 35); for (let j = 0; j < len && i + j < N; j++) motor[i + j] = 1; }
+    }
+    return { days, N, seed, season, doy0, regimes, ghi, ghiClear, kt, ta, loadBase, motor, events: [] };
+  }
+
+  // ---------------- plant ----------------
+  function createPlant(cfg) {
+    return {
+      cfg,
+      soc: 0.62,
+      gas: { state: 'off', warm: 0, runMin: 0, sp: 0, out: 0, starts: 0, fuelKg: 0, hours: 0, health: 1, faultLeft: 0, maintLeft: 0, planned: null },
+      acc: { load: 0, served: 0, unserved: 0, pv: 0, pvAvail: 0, curtail: 0, gas: 0, hydro: 0, hydroDump: 0, bessIn: 0, bessOut: 0, okfhWh: 0, lossOfLoadMin: 0, gasDump: 0, throughput: 0 },
+      flow: {},
+      log: [],
+    };
+  }
+
+  const ETA_B = 0.96, ETA_I = 0.96, SOC_MIN = 0.10, SOC_MAX = 0.95;
+  function gasSFC(lf) { return 1.25 / (0.55 + 0.45 * Math.max(0.3, lf)); } // kg biomass per kWh(e)
+
+  // core energy balance for one step (dtH in hours). Pure function on a small state object.
+  function balance(st, cfg, inp, gasOut, dtH, wantChargeFromGas) {
+    // st: {soc}; inp: {pv, hydro, load}; gasOut: kW available from running genset (0 if off)
+    let L = inp.load;
+    const Pi = cfg.interKW;
+    let interUsed = 0;
+    // hydro first (AC must-run, ELC dumps surplus)
+    const hydToLoad = Math.min(inp.hydro, L); L -= hydToLoad; let hydSur = inp.hydro - hydToLoad;
+    // PV → load through interlink
+    const pvToLoad = Math.min(inp.pv * ETA_I, L, Pi); L -= pvToLoad; interUsed += pvToLoad; let pvRem = inp.pv - pvToLoad / ETA_I;
+    // gas → load
+    const gmin = cfg.gasKW * 0.4;
+    let gasToLoad = 0, gasSur = 0;
+    if (gasOut > 0) { gasToLoad = Math.min(gasOut, L); L -= gasToLoad; gasSur = gasOut - gasToLoad; }
+    // battery discharge
+    const eAvail = Math.max(0, (st.soc - SOC_MIN) * cfg.bessKWh) * ETA_B / dtH;
+    let dis = Math.min(L / ETA_I, cfg.bessKW, eAvail, Math.max(0, Pi - interUsed) / ETA_I);
+    if (dis < 0) dis = 0;
+    L -= dis * ETA_I; interUsed += dis * ETA_I;
+    const unserved = Math.max(0, L);
+    // charging
+    const room = Math.max(0, (SOC_MAX - st.soc) * cfg.bessKWh) / ETA_B / dtH;
+    let chgCap = dis > 0 ? 0 : Math.min(cfg.bessKW, room);
+    const c1 = Math.min(pvRem, chgCap); chgCap -= c1; const curtail = pvRem - c1;
+    const interLeft = () => Math.max(0, Pi - interUsed);
+    const c2 = Math.min(hydSur * ETA_I, chgCap, interLeft()); chgCap -= c2; interUsed += c2; const hydDump = hydSur - c2 / ETA_I;
+    let c3 = 0, gasActual = gasToLoad, gasDump = 0;
+    if (gasOut > 0) {
+      c3 = wantChargeFromGas ? Math.min(gasSur * ETA_I, chgCap, interLeft()) : 0; interUsed += c3;
+      gasActual = gasToLoad + c3 / ETA_I;
+      if (gasActual < gmin) { gasDump = gmin - gasActual; gasActual = gmin; }
+    }
+    const chg = c1 + c2 + c3;
+    const soc = st.soc + (chg * ETA_B - dis / ETA_B) * dtH / cfg.bessKWh;
+    return { soc, hydToLoad, hydDump, hydUsed: inp.hydro - hydDump, pvToLoad, pvToBatt: c1, curtail, gasToLoad, gasToBatt: c3 / ETA_I, gasActual, gasDump, dis, chg, unserved, hydToBatt: c2 / ETA_I, interAC: pvToLoad + dis * ETA_I - c2 / ETA_I - c3 / ETA_I };
+  }
+
+  // ---------------- inputs at minute i (with scenario overlays) --------
+  function inputsAt(world, cfg, i, scen) {
+    const N = world.N; const j = Math.min(i, N - 1);
+    let g = world.ghi[j];
+    // scenario: cloud front
+    for (const e of world.events) {
+      if (e.type === 'cloud' && i >= e.t0 && i < e.t0 + e.dur) { const ramp = Math.min(1, (i - e.t0) / 20, (e.t0 + e.dur - i) / 20); g *= 1 - 0.8 * ramp; }
+      if (e.type === 'rain' && i >= e.t0 && i < e.t0 + e.dur) g *= 0.28;
+    }
+    const pv = pvPower(cfg.pvKWp, g, world.ta[j]);
+    let load = 0; const cat = {};
+    for (const c of CATS) { cat[c] = world.loadBase[c][j] * cfg.loadKWhDay * SHARE[c]; }
+    cat.industrial += world.motor[j] * cfg.loadKWhDay * 0.035;
+    for (const e of world.events) {
+      if (e.type === 'spike' && i >= e.t0 && i < e.t0 + e.dur) { cat[e.cat || 'industrial'] += e.kw; }
+    }
+    for (const c of CATS) load += cat[c];
+    let hq = (world.season === 'dry' ? 0.45 : 0.92) * (1 + 0.05 * Math.sin(i / 410) + 0.03 * Math.sin(i / 97));
+    const hydro = cfg.hydroKW > 0 && cfg.hydroOn !== false ? cfg.hydroKW * hq : 0;
+    return { pv: pv.p, Tc: pv.Tc, ghi: g, load, cat, hydro, ta: world.ta[j] };
+  }
+
+  // forecast (what the AI 'sees'): weather forecast incl. announced cloud/rain events,
+  // load from typical profile; smooth error growing with lead time.
+  function forecast(world, cfg, i0, steps, stepMin, seed) {
+    const rnd = mulberry32(seed);
+    const out = [];
+    let e1 = 0, e2 = 0;
+    for (let k = 0; k < steps; k++) {
+      const lead = k * stepMin / 60; // h
+      e1 = 0.9 * e1 + 0.1 * (rnd() - 0.5) * 2; e2 = 0.9 * e2 + 0.1 * (rnd() - 0.5) * 2;
+      let pv = 0, load = 0, hydro = 0;
+      for (let s = 0; s < stepMin; s += 5) {
+        const ii = i0 + k * stepMin + s;
+        const inp = inputsAt(world, cfg, ii, null);
+        // AI doesn't foresee random spikes/motor events: remove them
+        let base = 0; const jj = Math.min(ii, world.N - 1);
+        for (const c of CATS) base += world.loadBase[c][jj] * cfg.loadKWhDay * SHARE[c];
+        pv += inp.pv; load += base + cfg.loadKWhDay * 0.035 * 0.15; hydro += inp.hydro;
+      }
+      const n = stepMin / 5;
+      const sig = 0.05 + 0.15 * Math.min(1, lead / 24);
+      out.push({ pv: Math.max(0, pv / n * (1 + sig * e1 * 2.2)), load: Math.max(0, load / n * (1 + 0.06 * e2 * 2)), hydro: hydro / n });
+    }
+    return out;
+  }
+
+  // ---------------- controllers ----------------
+  const RULE = { start: 0.30, stop: 0.80 };
+  function ruleController(plant, inp) {
+    const g = plant.gas;
+    if (g.state === 'off' && plant.soc <= RULE.start && g.health > 0) return { cmd: 'start', mode: 'follow' };
+    if ((g.state === 'run' || g.state === 'warm') && plant.soc >= RULE.stop && g.runMin >= 120) return { cmd: 'stop' };
+    return { cmd: 'hold', mode: 'follow' };
+  }
+
+  const AI = { reserve: 0.25, horizonH: 36, stepMin: 15 };
+  function aiPlan(plant, world, cfg, i, seed) {
+    const steps = AI.horizonH * 60 / AI.stepMin, dtH = AI.stepMin / 60;
+    const fc = forecast(world, cfg, i, steps, AI.stepMin, seed);
+    const g = plant.gas;
+    const available = g.state !== 'fault' && g.state !== 'maint';
+    const maintAt = g.planned ? Math.max(0, Math.round((g.planned.t0 - i) / AI.stepMin)) : -1;
+    const maintLen = g.planned ? Math.round(g.planned.dur / AI.stepMin) : 0;
+    const running = g.state === 'run' || g.state === 'warm';
+    function evalPlan(start, dur) {
+      let soc = plant.soc, fuel = 0, uns = 0, curt = 0, pen = 0, starts = 0;
+      const st = { soc };
+      for (let k = 0; k < steps; k++) {
+        let on = start >= 0 && k >= start && k < start + dur;
+        if (maintAt >= 0 && k >= maintAt && k < maintAt + maintLen) on = false;
+        const warm = on && !running && k < start + 1; // 15 min warm-up
+        const out = on && !warm ? cfg.gasKW : 0;
+        st.soc = soc;
+        const r = balance(st, cfg, fc[k], out, dtH, true);
+        soc = r.soc;
+        if (on) fuel += (warm ? cfg.gasKW * 0.3 * 1.3 : r.gasActual * gasSFC(r.gasActual / cfg.gasKW)) * dtH;
+        uns += r.unserved * dtH; curt += r.curtail * dtH;
+        if (soc < AI.reserve) pen += (AI.reserve - soc) * cfg.bessKWh * dtH;
+      }
+      if (start >= 0 && !(running && start === 0)) starts = 1;
+      const endVal = (soc - plant.soc) * cfg.bessKWh * 1.2; // value of energy left in store (kg-equiv)
+      return fuel + 400 * uns + 6 * pen + 0.15 * curt + starts * 1.5 - endVal * 0.7;
+    }
+    let best = { cost: evalPlan(-1, 0), start: -1, dur: 0 };
+    if (available) {
+      const durs = [2, 3, 4, 5, 6, 8, 10, 12].map(h => h * 60 / AI.stepMin);
+      if (running) {
+        const minLeft = Math.max(0, 120 - g.runMin);
+        const minSteps = Math.ceil(minLeft / AI.stepMin);
+        for (const d of [minSteps, minSteps + 2, minSteps + 4, ...durs]) {
+          if (d < minSteps) continue;
+          const c = evalPlan(d === 0 ? -1 : 0, d);
+          if (c < best.cost - 0.01) best = { cost: c, start: d === 0 ? -1 : 0, dur: d };
+        }
+        if (minSteps > 0 && best.start === -1) { best = { cost: evalPlan(0, minSteps), start: 0, dur: minSteps }; }
+      } else {
+        for (let s = 0; s < 24 * 60 / AI.stepMin; s += 2)
+          for (const d of durs) {
+            const c = evalPlan(s, d);
+            if (c < best.cost - 0.3) best = { cost: c, start: s, dur: d };
+          }
+      }
+    }
+    // projected SoC trajectory under chosen plan (for display)
+    const traj = []; { let soc = plant.soc; const st = { soc };
+      for (let k = 0; k < steps; k++) { const on = best.start >= 0 && k >= best.start && k < best.start + best.dur; st.soc = soc; const r = balance(st, cfg, fc[k], on ? cfg.gasKW : 0, dtH, true); soc = r.soc; traj.push(soc); } }
+    return { start: best.start, dur: best.dur, startMin: best.start * AI.stepMin, durMin: best.dur * AI.stepMin, fc, traj };
+  }
+
+  // ---------------- simulation engine (both controllers) ----------------
+  function createSim(opts) {
+    const cfg = Object.assign({}, PRESETS[opts.preset || 'pilot'], opts.cfg || {});
+    const world = buildWorld({ days: opts.days || 4, seed: opts.seed || 2026, season: opts.season || 'rainy', forceRegimes: opts.forceRegimes });
+    const sim = {
+      cfg, world, i: 0,
+      ai: createPlant(cfg), rule: createPlant(cfg),
+      hist: { ai: [], rule: [] },
+      plan: null, nextPlan: 0,
+      okfhPerUnitW: opts.okfhPerUnitW || 0.0006,
+      maint: null, // degradation scenario state
+      listeners: [],
+    };
+    sim.ai.name = 'ai'; sim.rule.name = 'rule';
+
+    function log(plant, msg, kind) { plant.log.push({ i: sim.i, msg, kind: kind || 'info' }); if (plant.log.length > 80) plant.log.shift(); }
+    sim.log = log;
+
+    function stepPlant(plant, inp, decision) {
+      const g = plant.gas, cfg = sim.cfg;
+      // gas state machine
+      if (g.state === 'fault') { g.faultLeft--; if (g.faultLeft <= 0) { g.state = 'off'; g.health = 1; log(plant, 'GEN available (repair complete)', 'ok'); } }
+      if (g.state === 'maint') { g.maintLeft--; if (g.maintLeft <= 0) { g.state = 'off'; g.health = 1; g.planned = null; log(plant, 'GEN maintenance complete, bearing replaced, vib. RMS normal', 'ok'); } }
+      if (decision.cmd === 'start' && g.state === 'off') { g.state = 'warm'; g.warm = 15; g.runMin = 0; g.starts++; g.mode = decision.mode; }
+      if (decision.cmd === 'stop' && (g.state === 'run' || g.state === 'warm')) { g.state = 'off'; }
+      if (decision.mode) g.mode = decision.mode;
+      let gasOut = 0, warmFuel = 0;
+      if (g.state === 'warm') { g.warm--; g.runMin++; warmFuel = cfg.gasKW * 0.3 * 1.3 / 60; if (g.warm <= 0) g.state = 'run'; }
+      else if (g.state === 'run') {
+        g.runMin++;
+        if (g.mode === 'follow') { // conventional: follow net load + modest charging
+          const net = Math.max(0, inp.load - inp.hydro - inp.pv * ETA_I);
+          gasOut = Math.min(cfg.gasKW, Math.max(cfg.gasKW * 0.4, net + cfg.gasKW * 0.15));
+        } else gasOut = cfg.gasKW; // AI: run at rated (best SFC), surplus to battery
+      }
+      const r = balance(plant, cfg, inp, gasOut, 1 / 60, true);
+      plant.soc = r.soc;
+      if (g.state === 'run') { g.out = r.gasActual; g.fuelKg += r.gasActual * gasSFC(r.gasActual / cfg.gasKW) / 60 + 0; g.hours += 1 / 60; }
+      else g.out = 0;
+      g.fuelKg += warmFuel;
+      const a = plant.acc, h = 1 / 60;
+      a.load += inp.load * h; a.served += (inp.load - r.unserved) * h; a.unserved += r.unserved * h;
+      a.pv += (r.pvToLoad / ETA_I + r.pvToBatt) * h; a.pvAvail += inp.pv * h; a.curtail += r.curtail * h;
+      a.gas += g.out * h; a.gasDump += r.gasDump * h; a.hydro += r.hydUsed * h; a.hydroDump += r.hydDump * h;
+      a.bessIn += r.chg * h; a.bessOut += r.dis * h; a.throughput += (r.chg + r.dis) * h;
+      if (r.unserved > 0.001) a.lossOfLoadMin++;
+      a.okfhWh += sim.okfhPerUnitW * cfg.okfhUnits * (g.state === 'run' ? 1.6 : 1) * h * 1; // Wh
+      plant.flow = Object.assign({}, r, { gasOut: g.out, gasState: g.state, pvAvail: inp.pv, hydroAvail: inp.hydro, load: inp.load, cat: inp.cat, soc: plant.soc });
+      return r;
+    }
+
+    sim.step = function () {
+      const i = sim.i;
+      if (i >= sim.world.N - 1) return false;
+      const inp = inputsAt(sim.world, sim.cfg, i);
+      sim.inp = inp;
+      // ---- degradation / predictive-maintenance scenario ----
+      if (sim.maint) {
+        const m = sim.maint; const age = i - m.t0;
+        const sev = Math.min(1, Math.max(0, age / m.span)); m.sev = sev;
+        for (const plant of [sim.ai, sim.rule]) {
+          const g = plant.gas;
+          if (g.state === 'maint' || (plant === sim.ai && m.aiFixed) || (plant === sim.rule && m.ruleFailed)) continue;
+          g.health = 1 - sev;
+          // AI: OKFH-powered vibration node sees rising 1× / bearing-band RMS early
+          if (plant === sim.ai && !m.aiDetected && sev > 0.18) {
+            m.aiDetected = true;
+            // choose a maintenance window: next 4-h block where forecast PV covers load best (no gas needed)
+            const fc = forecast(sim.world, sim.cfg, i, 96, 15, 99);
+            let bestK = 0, bestScore = -1e9;
+            for (let k = 2; k < 96 - 16; k++) {
+              let sc = 0; for (let q = 0; q < 16; q++) sc += fc[k + q].pv - fc[k + q].load;
+              sc -= k * 0.01; if (sc > bestScore) { bestScore = sc; bestK = k; }
+            }
+            g.planned = { t0: i + bestK * 15, dur: 240 };
+            log(plant, `ALARM vib. node GEN-B1 (OKFH powered): RMS +${Math.round(sev * 160)} %, bearing band rising. RUL est. ${Math.round((1 - sev) * m.span / 60)} h. Maint. scheduled ${fmtClock(g.planned.t0)} (PV surplus window).`, 'warn');
+          }
+          if (plant === sim.ai && g.planned && i >= g.planned.t0 && g.state !== 'maint') {
+            g.state = 'maint'; g.maintLeft = g.planned.dur; m.aiFixed = true; g.health = 1;
+            log(plant, 'GEN OFF for planned maint. (4 h), load on PV + BESS', 'info');
+          }
+          if (sev >= 1 && plant === sim.rule && !m.ruleFailed) {
+            m.ruleFailed = true; g.state = 'fault'; g.faultLeft = 26 * 60; g.health = 0;
+            log(plant, 'TRIP GEN: bearing failure (unplanned). Repair ETA 26 h', 'bad');
+          }
+        }
+      }
+      // ---- AI decision ----
+      let dAI = { cmd: 'hold', mode: 'rated' };
+      if (i >= sim.nextPlan || sim.forceReplan) {
+        sim.forceReplan = false;
+        const plan = aiPlan(sim.ai, sim.world, sim.cfg, i, 1000 + i);
+        sim.plan = Object.assign(plan, { i });
+        sim.nextPlan = i + AI.stepMin;
+        const g = sim.ai.gas;
+        const running = g.state === 'run' || g.state === 'warm';
+        if (plan.start === 0 && !running) {
+          dAI = { cmd: 'start', mode: 'rated' };
+          const low = Math.min(...plan.traj.slice(0, 48));
+          log(sim.ai, `GEN START cmd, ${sim.cfg.gasKW} kW rated, planned ${(plan.durMin / 60).toFixed(1)} h. Fcst SoC < ${Math.round(AI.reserve * 100)} % reserve without GEN.`, 'act');
+        } else if (plan.start !== 0 && running && g.runMin >= 120) {
+          dAI = { cmd: 'stop' };
+          log(sim.ai, `GEN STOP cmd, SoC ${Math.round(sim.ai.soc * 100)} %, fcst PV + BESS sufficient.`, 'act');
+        } else if (plan.start > 0 && (!sim.lastAnnounced || Math.abs(sim.lastAnnounced - (i + plan.startMin)) > 180)) {
+          sim.lastAnnounced = i + plan.startMin;
+          log(sim.ai, `Plan: GEN run ${fmtClock(i + plan.startMin)}, ${(plan.durMin / 60).toFixed(1)} h.`, 'plan');
+        }
+      }
+      const dRule = ruleController(sim.rule, inp);
+      if (dRule.cmd === 'start' && sim.rule.gas.state === 'off') log(sim.rule, `SoC <= ${Math.round(RULE.start * 100)} %, GEN START (load-following)`, 'act');
+      if (dRule.cmd === 'stop' && sim.rule.gas.state === 'run') log(sim.rule, `SoC >= ${Math.round(RULE.stop * 100)} %, GEN STOP`, 'act');
+      const rA = stepPlant(sim.ai, inp, dAI);
+      const rR = stepPlant(sim.rule, inp, dRule);
+      if (rA.unserved > 0.01 && !(sim.ai.lastShed > i - 60)) { sim.ai.lastShed = i; log(sim.ai, 'LOAD SHED: supply < demand', 'bad'); }
+      if (rR.unserved > 0.01 && !(sim.rule.lastShed > i - 60)) { sim.rule.lastShed = i; log(sim.rule, 'LOAD SHED: supply < demand', 'bad'); }
+      for (const [k, p] of [['ai', sim.ai], ['rule', sim.rule]]) {
+        const f = p.flow;
+        sim.hist[k].push([f.pvToLoad / ETA_I + f.pvToBatt, f.gasOut, f.hydUsed, f.dis - f.chg, f.load, p.soc, f.unserved, f.pvAvail]);
+      }
+      sim.i++;
+      return true;
+    };
+
+    // scenario injection
+    sim.trigger = function (type) {
+      const i = sim.i;
+      if (type === 'cloud') { sim.world.events.push({ type: 'cloud', t0: i + 30, dur: 240 }); sim.forceReplan = true; for (const p of [sim.ai, sim.rule]) log(p, 'Weather fcst: cloud band in 30 min, approx. 4 h', 'info'); }
+      if (type === 'rain') { sim.world.events.push({ type: 'rain', t0: i, dur: 36 * 60 }); sim.forceReplan = true; for (const p of [sim.ai, sim.rule]) log(p, 'Weather fcst: heavy rain 36 h, PV approx. 25 %', 'info'); }
+      if (type === 'spike') { const kw = sim.cfg.loadKWhDay * 0.18; sim.world.events.push({ type: 'spike', t0: i, dur: 75, kw, cat: 'community' }); for (const p of [sim.ai, sim.rule]) log(p, `Load step: clinic +${kw.toFixed(2)} kW, 75 min`, 'info'); sim.fTransient = { t: performance.now ? performance.now() : 0, dp: kw, kind: 'spike' }; }
+      if (type === 'trip') {
+        for (const p of [sim.ai, sim.rule]) { const g = p.gas; const was = g.state === 'run'; if (g.state !== 'maint') { g.state = 'fault'; g.faultLeft = 180; } log(p, was ? `TRIP GEN (tar blockage), ${g.out ? g.out.toFixed(1) : ''} kW lost, BESS holding f` : 'GEN fault (tar blockage), unavailable 3 h', 'bad'); }
+        sim.forceReplan = true; sim.fTransient = { t: performance.now ? performance.now() : 0, dp: sim.cfg.gasKW, kind: 'trip' };
+      }
+      if (type === 'wear') { sim.maint = { t0: i, span: 30 * 60, sev: 0 }; for (const p of [sim.ai, sim.rule]) log(p, 'Fault injected: GEN bearing degradation (hidden)', 'info'); }
+    };
+    sim.okfhUnits = () => sim.cfg.okfhUnits;
+    return sim;
+  }
+
+  function fmtClock(i) {
+    const d = Math.floor(i / MIN_PER_DAY) + 1, m = i % MIN_PER_DAY;
+    return `D${d} ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  }
+
+  // fast benchmark: run both controllers over N days, return KPIs
+  function benchmarkDays(preset, days, season, seed, cfgOverride) {
+    const sim = createSim({ preset, days: days + 2, season, seed, cfg: cfgOverride });
+    const n = days * MIN_PER_DAY;
+    for (let k = 0; k < n; k++) sim.step();
+    return { ai: kpis(sim.ai, sim.cfg), rule: kpis(sim.rule, sim.cfg), sim };
+  }
+  function kpis(p, cfg) {
+    const a = p.acc, g = p.gas;
+    const renew = a.pv + a.hydro + a.gas; // biomass counted renewable
+    return {
+      load: a.load, unserved: a.unserved, lolpPct: 100 * a.unserved / Math.max(1e-9, a.load), lossMin: a.lossOfLoadMin,
+      fuelKg: g.fuelKg, starts: g.starts, gasHours: g.hours, gasKWh: a.gas, sfc: a.gas > 0 ? g.fuelKg / a.gas : 0,
+      curtail: a.curtail, pvUsedPct: 100 * a.pv / Math.max(1e-9, a.pvAvail), cycles: a.throughput / 2 / cfg.bessKWh,
+      socEnd: p.soc,
+      fuelAdjKg: g.fuelKg - (p.soc - 0.62) * cfg.bessKWh * 1.25 / 0.92,
+      dieselAvoidedUSD: a.served * 1.0, co2AvoidedKg: a.served * 0.85, okfhWh: a.okfhWh,
+    };
+  }
+
+  const api = { createSim, buildWorld, PRESETS, CATS, SITE, benchmarkDays, kpis, fmtClock, AI, RULE, MIN_PER_DAY, inputsAt, solarCosZ, ETA_I, ETA_B };
+  if (typeof module !== 'undefined') module.exports = api; else root.GRID = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const NS = 'http://www.w3.org/2000/svg';
+  const G = window.GRID, O = window.OKFH;
+  const ETA_I = G.ETA_I;
+  const NODE_MW = 0.35; // average draw of a duty-cycled LoRa vibration/temperature node (mW)
+
+  const S = {
+    tab: 'system', running: true, speed: 20, view: 'ai', preset: 'pilot', season: 'rainy',
+    acc: 0, last: performance.now(), t: 0,
+  };
+  let sim = null;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let C = {};
+  function readColors() { for (const k of ['bg', 'panel', 'panel2', 'line', 'line2', 'fg', 'muted', 'faint', 'accent', 'ac', 'dc', 'solar', 'hydro', 'bio', 'okfh', 'bess', 'good', 'warn', 'bad', 'sky-day', 'sky-night', 'win']) C[k] = css('--' + k); }
+
+  // ---------- helpers ----------
+  const fmtKW = v => (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' kW';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function el(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function fitCanvas(cv) {
+    const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    const w = Math.max(10, Math.round(r.width * d)), h = Math.max(10, Math.round(r.height * d));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ctx = cv.getContext('2d'); ctx.setTransform(d, 0, 0, d, 0, 0);
+    return { ctx, w: r.width, h: r.height };
+  }
+  function banner(msg) {
+    const b = $('#banner'); b.textContent = msg; b.classList.add('show');
+    clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('show'), 3200);
+  }
+
+  // =====================================================================
+  //  SIM LIFECYCLE
+  // =====================================================================
+  let okfhUnitW = 0.0006;
+  function newSim() {
+    sim = G.createSim({ preset: S.preset, season: S.season, days: 30, seed: 2026 + (S.season === 'dry' ? 7 : 0), okfhPerUnitW: okfhUnitW });
+    // spin up to 06:00 on day 1
+    while (sim.i < 6 * 60) sim.step();
+    for (const p of [sim.ai, sim.rule]) p.log.length = 0;
+    sim.log(sim.ai, `AI (MPC) online, horizon 36 h, reserve ${Math.round(G.AI.reserve * 100)} %`, 'ok');
+    sim.log(sim.rule, `Rule-based online, GEN on at SoC <= ${Math.round(G.RULE.start * 100)} %, off at >= ${Math.round(G.RULE.stop * 100)} %`, 'ok');
+    buildSchematic();
+    buildModelDoc();
+    lastLogLen = -1;
+  }
+
+  // =====================================================================
+  //  SCHEMATIC (SVG)
+  // =====================================================================
+  let R = {}; // references
+  let SEGS = [];
+  function buildSchematic() {
+    const host = $('#schem'); host.innerHTML = '';
+    const cfg = sim.cfg;
+    const svg = el('svg', { viewBox: '0 -22 1200 712', role: 'img', 'aria-label': 'Live AHAEE system schematic with power flows', preserveAspectRatio: 'xMidYMid meet' }, host);
+    const defs = el('defs', {}, svg);
+    const lg = el('linearGradient', { id: 'skyg', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    R.sky1 = el('stop', { offset: '0', 'stop-color': C['sky-day'] }, lg);
+    R.sky2 = el('stop', { offset: '1', 'stop-color': C['sky-day'] }, lg);
+    const cp = el('clipPath', { id: 'skyclip' }, defs); el('rect', { x: 380, y: 14, width: 160, height: 150, rx: 3 }, cp);
+    const rg = el('radialGradient', { id: 'flameg' }, defs);
+    el('stop', { offset: '0', 'stop-color': '#fff3b0' }, rg); el('stop', { offset: '.5', 'stop-color': '#ffae34' }, rg); el('stop', { offset: '1', 'stop-color': '#ff5a1f', 'stop-opacity': '0' }, rg);
+
+    const gWires = el('g', {}, svg), gCards = el('g', {}, svg), gBand = el('g', {}, svg), gParts = el('g', {}, svg), gTop = el('g', {}, svg);
+
+    // ---- buses & wires ----
+    el('text', { x: 20, y: 4, class: 'lbl', fill: 'var(--fg)' }, gWires, '1. ENERGY SOURCES');
+    el('line', { x1: 20, y1: 261, x2: 390, y2: 261, class: 'busac' }, gWires);
+    el('line', { x1: 530, y1: 261, x2: 1180, y2: 261, class: 'busdc' }, gWires);
+    el('text', { x: 150, y: 253, class: 'lbl' }, gWires, 'AC BUS, 230 V, 50 Hz');
+    el('text', { x: 700, y: 253, class: 'lbl', fill: 'var(--dc)' }, gWires, `DC BUS, ${cfg.bessKWh > 40 ? '400' : '48'} V`);
+    for (const [x1, y1, x2, y2] of [[100, 164, 100, 261], [280, 164, 280, 261], [640, 164, 640, 261], [1050, 240, 1050, 261]]) el('line', { x1, y1, x2, y2, class: 'wire' }, gWires);
+    el('polyline', { points: '60,261 60,470 520,470 1100,470', class: 'wire', 'stroke-width': 4 }, gWires);
+    for (const x of [635, 790, 945, 1100]) el('line', { x1: x, y1: 470, x2: x, y2: 502, class: 'wire' }, gWires);
+    R.okfhWire = el('line', { x1: 820, y1: 210, x2: 820, y2: 326, stroke: 'var(--okfh)', 'stroke-width': 1.6, 'stroke-dasharray': '2 4', fill: 'none' }, gWires);
+    el('text', { x: 826, y: 292, class: 'vals', fill: 'var(--okfh)' }, gWires, 'mW → sensor nodes');
+    // control lines (animated)
+    R.ctl = [];
+    for (const [x1, y1, x2, y2] of [[100, 300, 100, 210], [280, 300, 280, 210], [460, 300, 460, 286], [640, 300, 640, 210], [1110, 300, 1110, 240]]) R.ctl.push(el('line', { x1, y1, x2, y2, class: 'ctl' }, gWires));
+
+    // ---- source cards ----
+    function card(x, y, w, h, title, sub, color) {
+      const g = el('g', {}, gCards);
+      el('rect', { x, y, width: w, height: h, rx: 3, class: 'card' }, g);
+      el('rect', { x, y, width: w, height: 4, rx: 2, fill: color }, g);
+      el('text', { x: x + 12, y: y + 24, class: 'cardt' }, g, title);
+      el('text', { x: x + 12, y: y + 39, class: 'cards' }, g, sub);
+      return g;
+    }
+    function iface(x, l1, l2) {
+      const g = el('g', {}, gCards);
+      el('rect', { x: x + 8, y: 176, width: 144, height: 34, rx: 3, class: 'ifbox' }, g);
+      el('text', { x: x + 80, y: 190, class: 'ift', 'text-anchor': 'middle' }, g, l1);
+      el('text', { x: x + 80, y: 203, class: 'ift', 'text-anchor': 'middle' }, g, l2);
+    }
+    // Hydro
+    R.hydroCard = card(20, 14, 160, 150, 'HYDRO', `${cfg.hydroKW < 0.5 ? 'Pico' : 'Micro'}-hydro, ${cfg.hydroKW} kW`, 'var(--hydro)');
+    el('path', { d: 'M40 64 L84 64 L84 76', stroke: 'var(--line2)', 'stroke-width': 7, fill: 'none' }, R.hydroCard);
+    el('circle', { cx: 100, cy: 88, r: 22, fill: 'none', stroke: 'var(--hydro)', 'stroke-width': 2 }, R.hydroCard);
+    R.hrot = el('g', {}, R.hydroCard);
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; el('line', { x1: 100, y1: 88, x2: 100 + 19 * Math.cos(a), y2: 88 + 19 * Math.sin(a), stroke: 'var(--hydro)', 'stroke-width': 3, 'stroke-linecap': 'round' }, R.hrot); }
+    R.hwave = el('path', { d: '', stroke: 'var(--hydro)', 'stroke-width': 2, fill: 'none', opacity: .7 }, R.hydroCard);
+    R.hVal = el('text', { x: 32, y: 144, class: 'val' }, R.hydroCard, '');
+    R.hSub = el('text', { x: 32, y: 159, class: 'vals' }, R.hydroCard, '');
+    iface(20, 'AC interface', 'ELC, protection');
+    // Biomass
+    const bc = card(200, 14, 160, 150, 'BIOMASS', `Gasifier genset, ${cfg.gasKW} kW`, 'var(--bio)');
+    el('rect', { x: 222, y: 64, width: 40, height: 52, rx: 3, fill: 'var(--panel2)', stroke: 'var(--bio)', 'stroke-width': 1.5 }, bc);
+    el('path', { d: 'M226 64 L232 57 L252 57 L258 64', fill: 'none', stroke: 'var(--bio)', 'stroke-width': 1.5 }, bc);
+    R.flame = el('ellipse', { cx: 242, cy: 102, rx: 13, ry: 12, fill: 'url(#flameg)', opacity: 0 }, bc);
+    el('path', { d: 'M262 80 L292 80 L292 90', fill: 'none', stroke: 'var(--line2)', 'stroke-width': 4 }, bc);
+    el('rect', { x: 284, y: 90, width: 56, height: 26, rx: 4, fill: 'var(--panel2)', stroke: 'var(--bio)', 'stroke-width': 1.5 }, bc);
+    el('text', { x: 312, y: 107, 'text-anchor': 'middle', class: 'pill', fill: 'var(--bio)' }, bc, 'GEN');
+    el('rect', { x: 330, y: 62, width: 7, height: 28, fill: 'var(--line2)' }, bc);
+    R.smoke = [0, 1, 2].map(k => el('circle', { cx: 333, cy: 54, r: 4, fill: 'var(--muted)', opacity: 0 }, bc));
+    R.okDot = el('circle', { cx: 278, cy: 112, r: 3.5, fill: 'var(--okfh)' }, bc);
+    R.gasPillBg = el('rect', { x: 290, y: 130, width: 64, height: 18, rx: 9, fill: 'var(--panel2)' }, bc);
+    R.gasPill = el('text', { x: 322, y: 143.5, 'text-anchor': 'middle', class: 'pill', fill: 'var(--muted)' }, bc, 'OFF');
+    R.bVal = el('text', { x: 212, y: 144, class: 'val' }, bc, '');
+    R.bSub = el('text', { x: 212, y: 159, class: 'vals' }, bc, '');
+    iface(200, 'AC interface', 'sync, protection');
+    // Sky
+    const sk = el('g', { 'clip-path': 'url(#skyclip)' }, gCards);
+    R.skyRect = el('rect', { x: 380, y: 14, width: 160, height: 150, fill: 'url(#skyg)' }, sk);
+    R.stars = el('g', {}, sk);
+    for (let k = 0; k < 14; k++) el('circle', { cx: 388 + (k * 37) % 150, cy: 22 + (k * 23) % 70, r: k % 3 ? 0.9 : 1.4, fill: '#fff' }, R.stars);
+    el('path', { d: 'M392 128 A 68 68 0 0 1 528 128', fill: 'none', stroke: '#ffffff', 'stroke-opacity': .25, 'stroke-dasharray': '2 4' }, sk);
+    R.sun = el('circle', { cx: 460, cy: 70, r: 10, fill: '#ffd34d' }, sk);
+    R.moon = el('circle', { cx: 460, cy: 70, r: 8, fill: '#e8ecff' }, sk);
+    R.clouds = [];
+    for (let k = 0; k < 4; k++) { const g = el('g', { opacity: 0 }, sk); el('ellipse', { cx: 0, cy: 0, rx: 22, ry: 9, fill: '#dfe6f3' }, g); el('ellipse', { cx: 12, cy: -6, rx: 13, ry: 9, fill: '#eef2fa' }, g); el('ellipse', { cx: -10, cy: -4, rx: 3, ry: 7, fill: '#e6ebf6' }, g); R.clouds.push(g); }
+    el('rect', { x: 380, y: 128, width: 160, height: 36, fill: '#000', opacity: .28 }, sk);
+    el('text', { x: 390, y: 31, class: 'pill', fill: '#ffffff', opacity: .85 }, sk, 'SKY, OBUASI 6.2°N');
+    R.skyT1 = el('text', { x: 390, y: 144, class: 'vals', fill: '#ffffff' }, sk, '');
+    R.skyT2 = el('text', { x: 390, y: 158, class: 'vals', fill: '#ffffff', opacity: .8 }, sk, '');
+    el('rect', { x: 380, y: 14, width: 160, height: 150, rx: 3, fill: 'none', stroke: 'var(--line2)' }, gCards);
+    // Solar
+    const sc = card(560, 14, 160, 150, 'SOLAR PV', `${cfg.pvKWp} kWp mono-Si`, 'var(--solar)');
+    R.panels = [];
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+      const x = 580 + c * 40 + r * 8, y = 58 + r * 26;
+      R.panels.push(el('path', { d: `M${x} ${y} l34 0 l-6 22 l-34 0 z`, fill: 'var(--solar)', 'fill-opacity': .2, stroke: 'var(--solar)', 'stroke-width': 1.2 }, sc));
+    }
+    R.sVal = el('text', { x: 572, y: 144, class: 'val' }, sc, '');
+    R.sSub = el('text', { x: 572, y: 159, class: 'vals' }, sc, '');
+    iface(560, 'DC interface', 'MPPT controller');
+    // OKFH
+    const oc = card(740, 14, 160, 150, 'OKFH', `${cfg.okfhUnits} kinetic harvesters`, 'var(--okfh)');
+    el('circle', { cx: 820, cy: 92, r: 30, fill: 'var(--panel2)', stroke: 'var(--okfh)', 'stroke-width': 1.5 }, oc);
+    for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5; el('circle', { cx: 820 + 30 * Math.cos(a), cy: 92 + 30 * Math.sin(a), r: 2.6, fill: 'var(--okfh)' }, oc); }
+    R.okTrail = el('polyline', { points: '', fill: 'none', stroke: 'var(--okfh)', 'stroke-opacity': .45, 'stroke-width': 1.2 }, oc);
+    R.okOrb = el('circle', { cx: 820, cy: 92, r: 9, fill: 'var(--fg)', stroke: 'var(--okfh)', 'stroke-width': 2 }, oc);
+    R.oVal = el('text', { x: 752, y: 144, class: 'val' }, oc, '');
+    R.oSub = el('text', { x: 752, y: 159, class: 'vals' }, oc, '');
+    iface(740, 'Conditioning', 'rectifier, PMIC');
+    // BESS
+    const bs = card(920, 14, 260, 226, '2. ENERGY STORAGE (BESS)', `${cfg.bessKWh} kWh LFP, ${cfg.bessKW} kW, grid-forming`, 'var(--bess)');
+    el('rect', { x: 936, y: 54, width: 96, height: 156, rx: 3, fill: 'var(--panel2)', stroke: 'var(--line2)' }, bs);
+    R.cells = [];
+    for (let k = 0; k < 10; k++) R.cells.push(el('rect', { x: 942, y: 196 - k * 15, width: 84, height: 11, rx: 2, fill: 'var(--bess)', opacity: .15 }, bs));
+    R.socT = el('text', { x: 1046, y: 96, class: 'val', style: 'font-size:34px' }, bs, '');
+    el('text', { x: 1048, y: 112, class: 'vals' }, bs, 'state of charge');
+    R.bessMode = el('text', { x: 1046, y: 140, class: 'pill', fill: 'var(--bess)', style: 'font-size:13px' }, bs, '');
+    R.bessKW = el('text', { x: 1046, y: 158, class: 'val' }, bs, '');
+    R.bessE = el('text', { x: 1046, y: 176, class: 'vals' }, bs, '');
+    el('text', { x: 1046, y: 206, class: 'ift' }, bs, 'reserve, black start');
+    // Interlink
+    const il = el('g', {}, gCards);
+    el('rect', { x: 390, y: 236, width: 140, height: 50, rx: 3, class: 'card', stroke: 'var(--accent)' }, il);
+    el('text', { x: 460, y: 254, 'text-anchor': 'middle', class: 'pill', fill: 'var(--fg)' }, il, 'AC/DC INTERLINK');
+    R.iVal = el('text', { x: 460, y: 274, 'text-anchor': 'middle', class: 'vals', fill: 'var(--fg)' }, il, '');
+
+    // ---- intelligence band ----
+    el('rect', { x: 140, y: 300, width: 1040, height: 128, rx: 12, class: 'band' }, gBand);
+    el('text', { x: 156, y: 318, class: 'bandt' }, gBand, '3. CENTRAL CONTROL SYSTEM (INTELLIGENCE LAYER)');
+    R.ctrlMode = el('text', { x: 1164, y: 318, 'text-anchor': 'end', class: 'bandt' }, gBand, '');
+    function mod(x, w, t) { const g = el('g', {}, gBand); el('rect', { x, y: 326, width: w, height: 94, rx: 3, class: 'mod' }, g); el('text', { x: x + 10, y: 343, class: 'lbl', fill: 'var(--fg)' }, g, t); return g; }
+    const da = mod(156, 210, 'DATA ACQUISITION');
+    R.da1 = el('text', { x: 166, y: 362, class: 'ift', fill: 'var(--fg)' }, da, '');
+    R.da2 = el('text', { x: 166, y: 377, class: 'ift' }, da, '');
+    R.sens = [];
+    for (let k = 0; k < 16; k++) R.sens.push(el('circle', { cx: 170 + k * 12, cy: 400, r: 3.2, fill: k < 10 ? 'var(--okfh)' : 'var(--muted)', opacity: .5 }, da));
+    const em = mod(378, 230, 'ENERGY MANAGEMENT (EMS)');
+    R.em = [0, 1, 2, 3].map(k => el('text', { x: 388, y: 362 + k * 15, class: 'ift', fill: k === 0 ? 'var(--fg)' : 'var(--muted)' }, em, ''));
+    const ai = mod(620, 330, 'AI ENGINE (FORECAST + MPC)');
+    el('rect', { x: 630, y: 350, width: 310, height: 50, fill: 'var(--panel2)', rx: 4 }, ai);
+    R.aiPV = el('path', { d: '', fill: 'var(--solar)', 'fill-opacity': .35, stroke: 'var(--solar)', 'stroke-width': 1 }, ai);
+    R.aiLoad = el('path', { d: '', fill: 'none', stroke: 'var(--fg)', 'stroke-width': 1, 'stroke-opacity': .7 }, ai);
+    R.aiGas = el('rect', { x: 0, y: 350, width: 0, height: 50, fill: 'var(--bio)', opacity: .22 }, ai);
+    R.aiSoc = el('path', { d: '', fill: 'none', stroke: 'var(--bess)', 'stroke-width': 2 }, ai);
+    el('text', { x: 634, y: 362, class: 'ift' }, ai, 'next 24 h: solar, demand, SoC');
+    R.aiT = el('text', { x: 630, y: 414, class: 'ift', fill: 'var(--fg)' }, ai, '');
+    R.aiOff = el('g', { opacity: 0 }, ai);
+    el('rect', { x: 621, y: 346, width: 328, height: 72, fill: 'var(--panel)', opacity: .92 }, R.aiOff);
+    el('text', { x: 785, y: 374, 'text-anchor': 'middle', class: 'ift', fill: 'var(--fg)' }, R.aiOff, 'AI not active (rule-based mode)');
+    el('text', { x: 785, y: 392, 'text-anchor': 'middle', class: 'ift' }, R.aiOff, `Rule: gas on at SoC ≤ ${G.RULE.start * 100} %, off at ${G.RULE.stop * 100} %`);
+    const sc2 = mod(962, 204, 'SCADA / HMI');
+    R.sc = [0, 1, 2, 3].map(k => el('text', { x: 972, y: 362 + k * 15, class: 'ift', fill: k === 0 ? 'var(--fg)' : 'var(--muted)' }, sc2, ''));
+
+    // ---- distribution & loads ----
+    el('text', { x: 96, y: 446, class: 'lbl' }, gCards, '4. POWER CONVERSION & DISTRIBUTION');
+    el('text', { x: 572, y: 458, class: 'lbl' }, gCards, '5. ELECTRICAL LOADS');
+    for (const [x, t1, t2] of [[96, 'PROTECTION', '& SWITCHGEAR'], [236, 'SMART METERING', 'AMI, prepaid'], [376, 'LV FEEDERS', '400 / 230 V']]) {
+      el('rect', { x, y: 452, width: 130, height: 38, rx: 3, class: 'ifbox' }, gCards);
+      el('text', { x: x + 65, y: 467, 'text-anchor': 'middle', class: 'pill', fill: 'var(--fg)', style: 'font-size:10.5px' }, gCards, t1);
+      el('text', { x: x + 65, y: 482, 'text-anchor': 'middle', class: 'ift' }, gCards, t2);
+    }
+    R.bld = {};
+    const bdefs = [['residential', 635, 'Residential'], ['commercial', 790, 'Commercial'], ['industrial', 945, 'Agro-processing'], ['community', 1100, 'Clinic & school']];
+    for (const [k, cx, name] of bdefs) {
+      const g = el('g', {}, gCards); const b = { g, win: [] };
+      if (k === 'residential') {
+        b.out = el('path', { d: `M${cx - 50} 560 L${cx} 512 L${cx + 50} 560 L${cx + 50} 626 L${cx - 50} 626 Z`, fill: 'var(--panel)', stroke: 'var(--line2)', 'stroke-width': 1.5 }, g);
+        for (const [dx, dy] of [[-34, 572], [10, 572], [-34, 598], [10, 598]]) b.win.push(el('rect', { x: cx + dx, y: dy, width: 22, height: 16, rx: 2, fill: 'var(--win)' }, g));
+      } else if (k === 'commercial') {
+        b.out = el('rect', { x: cx - 55, y: 530, width: 110, height: 96, rx: 3, fill: 'var(--panel)', stroke: 'var(--line2)', 'stroke-width': 1.5 }, g);
+        el('path', { d: `M${cx - 60} 548 L${cx + 60} 548 L${cx + 52} 532 L${cx - 52} 532 Z`, fill: 'var(--accent)', opacity: .5 }, g);
+        for (const dx of [-45, -14, 17]) b.win.push(el('rect', { x: cx + dx, y: 560, width: 26, height: 30, rx: 2, fill: 'var(--win)' }, g));
+        b.win.push(el('rect', { x: cx - 45, y: 598, width: 90, height: 8, rx: 2, fill: 'var(--win)' }, g));
+      } else if (k === 'industrial') {
+        b.out = el('path', { d: `M${cx - 58} 626 L${cx - 58} 548 L${cx - 30} 530 L${cx - 30} 548 L${cx - 2} 530 L${cx - 2} 548 L${cx + 26} 530 L${cx + 26} 548 L${cx + 58} 548 L${cx + 58} 626 Z`, fill: 'var(--panel)', stroke: 'var(--line2)', 'stroke-width': 1.5 }, g);
+        for (const dx of [-46, -16, 14]) b.win.push(el('rect', { x: cx + dx, y: 566, width: 24, height: 18, rx: 2, fill: 'var(--win)' }, g));
+        b.mill = el('g', {}, g);
+        for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2; el('line', { x1: cx + 36, y1: 604, x2: cx + 36 + 12 * Math.cos(a), y2: 604 + 12 * Math.sin(a), stroke: 'var(--muted)', 'stroke-width': 3, 'stroke-linecap': 'round' }, b.mill); }
+        el('circle', { cx: cx + 36, cy: 604, r: 14, fill: 'none', stroke: 'var(--line2)' }, g);
+      } else {
+        b.out = el('rect', { x: cx - 55, y: 528, width: 110, height: 98, rx: 3, fill: 'var(--panel)', stroke: 'var(--line2)', 'stroke-width': 1.5 }, g);
+        el('rect', { x: cx - 7, y: 536, width: 14, height: 34, fill: 'var(--bio)' }, g); el('rect', { x: cx - 17, y: 546, width: 34, height: 14, fill: 'var(--bio)' }, g);
+        for (const dx of [-45, 23]) for (const dy of [540, 576]) b.win.push(el('rect', { x: cx + dx, y: dy, width: 22, height: 18, rx: 2, fill: 'var(--win)' }, g));
+        b.win.push(el('rect', { x: cx - 12, y: 596, width: 24, height: 30, rx: 2, fill: 'var(--win)' }, g));
+      }
+      el('text', { x: cx, y: 646, 'text-anchor': 'middle', class: 'pill', fill: 'var(--fg)', style: 'font-size:12px' }, g, name.toUpperCase());
+      b.val = el('text', { x: cx, y: 664, 'text-anchor': 'middle', class: 'vals', fill: 'var(--fg)' }, g, '');
+      b.shed = el('text', { x: cx, y: 522, 'text-anchor': 'middle', class: 'pill', fill: 'var(--bad)', opacity: 0 }, g, 'LOAD SHED');
+      R.bld[k] = b;
+    }
+    // comms + legend
+    el('rect', { x: 20, y: 508, width: 500, height: 168, rx: 3, fill: 'var(--panel)', stroke: 'var(--line)' }, gCards);
+    el('text', { x: 34, y: 530, class: 'lbl', fill: 'var(--fg)' }, gCards, '6-7. COMMUNICATION NETWORK & USER INTERFACE');
+    el('text', { x: 34, y: 550, class: 'ift' }, gCards, 'LoRaWAN sensor mesh, 4G backhaul, web & mobile app');
+    R.comm = el('text', { x: 34, y: 566, class: 'ift', fill: 'var(--fg)' }, gCards, '');
+    const L = [['var(--ac)', 'AC power flow', 5, ''], ['var(--dc)', 'DC power flow', 5, ''], ['var(--accent)', 'Control & data', 1.6, '4 5'], ['var(--okfh)', 'OKFH micro-power (mW)', 1.6, '2 4']];
+    L.forEach(([c, t, w, d], k) => {
+      const y = 596 + Math.floor(k / 2) * 26, x = 34 + (k % 2) * 240;
+      el('line', { x1: x, y1: y, x2: x + 36, y2: y, stroke: c, 'stroke-width': w, 'stroke-dasharray': d, 'stroke-linecap': 'round' }, gCards);
+      el('text', { x: x + 46, y: y + 4, class: 'ift', fill: 'var(--fg)' }, gCards, t);
+    });
+    el('text', { x: 34, y: 660, class: 'ift' }, gCards, 'Dot density and speed proportional to power.');
+
+    // ---- particle segments ----
+    const served = f => f.load - f.unserved;
+    const cat = (f, c) => f.cat ? f.cat[c] * (f.load > 0 ? served(f) / f.load : 0) : 0;
+    SEGS = [
+      { pts: [[100, 166], [100, 261]], cls: 'p-hydro', P: f => f.hydUsed },
+      { pts: [[280, 166], [280, 261]], cls: 'p-bio', P: f => f.gasOut - f.gasDump },
+      { pts: [[640, 166], [640, 261]], cls: 'p-solar', P: f => f.pvToLoad / ETA_I + f.pvToBatt },
+      { pts: [[1050, 240], [1050, 261]], cls: 'p-bess', P: f => f.dis - f.chg },
+      { pts: [[1050, 261], [640, 261]], cls: 'p-dc', P: f => f.dis - f.chg },
+      { pts: [[640, 261], [530, 261]], cls: 'p-dc', P: f => f.pvToLoad / ETA_I + f.pvToBatt + f.dis - f.chg },
+      { pts: [[530, 261], [390, 261]], cls: 'p-ac', P: f => f.interAC },
+      { pts: [[390, 261], [280, 261]], cls: 'p-ac', P: f => f.interAC },
+      { pts: [[280, 261], [100, 261]], cls: 'p-ac', P: f => f.interAC + f.gasOut - f.gasDump },
+      { pts: [[100, 261], [60, 261], [60, 470], [520, 470]], cls: 'p-ac', P: served },
+      { pts: [[520, 470], [635, 470]], cls: 'p-ac', P: served },
+      { pts: [[635, 470], [790, 470]], cls: 'p-ac', P: f => served(f) - cat(f, 'residential') },
+      { pts: [[790, 470], [945, 470]], cls: 'p-ac', P: f => cat(f, 'industrial') + cat(f, 'community') },
+      { pts: [[945, 470], [1100, 470]], cls: 'p-ac', P: f => cat(f, 'community') },
+      { pts: [[635, 470], [635, 506]], cls: 'p-load', P: f => cat(f, 'residential') },
+      { pts: [[790, 470], [790, 526]], cls: 'p-load', P: f => cat(f, 'commercial') },
+      { pts: [[945, 470], [945, 526]], cls: 'p-load', P: f => cat(f, 'industrial') },
+      { pts: [[1100, 470], [1100, 524]], cls: 'p-load', P: f => cat(f, 'community') },
+      { pts: [[820, 212], [820, 326]], cls: 'p-okfh', P: () => -1, fixed: true },
+    ];
+    for (const s of SEGS) {
+      let L = 0; s.cum = [0];
+      for (let k = 1; k < s.pts.length; k++) { L += Math.hypot(s.pts[k][0] - s.pts[k - 1][0], s.pts[k][1] - s.pts[k - 1][1]); s.cum.push(L); }
+      s.len = L; s.ph = 0;
+      const n = Math.ceil(L / 16) + 1;
+      s.dots = [];
+      for (let k = 0; k < n; k++) s.dots.push(el('circle', { r: 3, class: s.cls, cx: -200, cy: -200 }, gParts));
+    }
+    R.gTop = gTop;
+  }
+  function pointAt(s, d) {
+    let k = 1; while (k < s.cum.length - 1 && s.cum[k] < d) k++;
+    const a = s.pts[k - 1], b = s.pts[k], t = (d - s.cum[k - 1]) / Math.max(1e-6, s.cum[k] - s.cum[k - 1]);
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  }
+
+  // mini OKFH running inside the system card
+  const miniH = O.createOKFH({ fp: 3.0, RL: 450 }); miniH.setExcitation('truck', 0.15, 5);
+  const miniTrail = [];
+
+  let lastLogLen = -1, lastLogView = '';
+  function renderSystem(dtReal) {
+    const plant = sim[S.view], f = plant.flow, cfg = sim.cfg, inp = sim.inp;
+    if (!f || !inp) return;
+    const Pscale = Math.max(0.3, cfg.loadKWhDay / 24 * 2.2);
+    // particles
+    for (const s of SEGS) {
+      let P = s.fixed ? 0.12 * Pscale : s.P(f);
+      const mag = Math.abs(P) / Pscale;
+      const on = Math.abs(P) > 0.004 * Pscale;
+      const m = clamp(mag, 0, 1.5);
+      const sp = s.fixed ? 34 : 70 / (0.35 + 1.6 * m);
+      const v = s.fixed ? 22 : 40 + 55 * Math.min(1, m);
+      s.ph = (s.ph + v * dtReal * Math.sign(P || 1)) % sp; if (s.ph < 0) s.ph += sp;
+      const r = s.fixed ? 1.8 : 2.2 + 1.5 * Math.min(1, m);
+      let k = 0;
+      if (on) for (let d = s.ph; d <= s.len && k < s.dots.length; d += sp) {
+        const p = pointAt(s, d); const c = s.dots[k++];
+        c.setAttribute('cx', p[0].toFixed(1)); c.setAttribute('cy', p[1].toFixed(1)); c.setAttribute('r', r.toFixed(1));
+      }
+      for (; k < s.dots.length; k++) { const c = s.dots[k]; if (c.getAttribute('cx') !== '-200') { c.setAttribute('cx', -200); c.setAttribute('cy', -200); } }
+    }
+    // control line animation
+    S.dash = (S.dash || 0) - dtReal * 18;
+    for (const l of R.ctl) l.setAttribute('stroke-dashoffset', S.dash.toFixed(1));
+    R.okfhWire.setAttribute('stroke-dashoffset', (S.dash * 0.6).toFixed(1));
+
+    // hydro
+    const hOn = cfg.hydroKW > 0;
+    R.hydroCard.setAttribute('opacity', hOn ? 1 : 0.4);
+    S.hrot = (S.hrot || 0) + dtReal * 360 * (hOn ? 0.4 + 1.6 * f.hydUsed / Math.max(0.1, cfg.hydroKW) : 0);
+    R.hrot.setAttribute('transform', `rotate(${S.hrot % 360} 100 88)`);
+    let wd = ''; for (let x = 36; x <= 164; x += 4) wd += (x === 36 ? 'M' : 'L') + x + ' ' + (122 + 2.5 * Math.sin(x / 7 + S.t * 3)).toFixed(1);
+    R.hwave.setAttribute('d', hOn ? wd : '');
+    R.hVal.textContent = hOn ? fmtKW(f.hydUsed) : 'not installed';
+    R.hSub.textContent = hOn ? (f.hydDump > 0.01 ? `ELC dump ${f.hydDump.toFixed(2)} kW` : (sim.world.season === 'dry' ? 'dry-season flow' : 'rainy-season flow')) : 'needs a stream';
+    // biomass
+    const g = plant.gas;
+    const st = g.state;
+    const map = { off: ['OFF', 'var(--muted)', 'var(--panel2)'], warm: ['WARM-UP', 'var(--accent-ink)', 'var(--warn)'], run: ['RUNNING', 'var(--accent-ink)', 'var(--good)'], fault: ['FAULT', '#fff', 'var(--bad)'], maint: ['MAINT.', 'var(--accent-ink)', 'var(--hydro)'] };
+    const [tx, fc, bgc] = map[st] || map.off;
+    R.gasPill.textContent = tx; R.gasPill.setAttribute('fill', fc); R.gasPillBg.setAttribute('fill', bgc);
+    const fl = st === 'run' ? 0.75 + 0.25 * Math.sin(S.t * 23) * Math.sin(S.t * 7) : st === 'warm' ? 0.35 + 0.3 * Math.abs(Math.sin(S.t * 4)) : 0;
+    R.flame.setAttribute('opacity', fl.toFixed(2));
+    R.smoke.forEach((c, k) => { const ph = ((S.t * 0.6 + k / 3) % 1); const on = st === 'run' || st === 'warm'; c.setAttribute('cy', (58 - ph * 30).toFixed(1)); c.setAttribute('cx', (333 + ph * 8).toFixed(1)); c.setAttribute('r', (3 + ph * 6).toFixed(1)); c.setAttribute('opacity', on ? ((1 - ph) * 0.35).toFixed(2) : 0); });
+    R.okDot.setAttribute('opacity', st === 'run' ? 0.5 + 0.5 * Math.abs(Math.sin(S.t * 9)) : 0.35);
+    R.bVal.textContent = fmtKW(g.out);
+    R.bSub.textContent = `${g.fuelKg.toFixed(1)} kg fuel, ${g.starts} starts`;
+    // sky
+    const doy = sim.world.doy0 + Math.floor(sim.i / 1440), mod = sim.i % 1440;
+    const { cz, st: solarT } = G.solarCosZ(doy, mod);
+    const elev = Math.asin(clamp(cz, -1, 1));
+    const day = clamp((cz + 0.08) / 0.25, 0, 1);
+    const kt = inp.ghi / Math.max(1, sim.world.ghiClear[Math.min(sim.i, sim.world.N - 1)]);
+    const grey = clamp(1 - kt, 0, 1) * day;
+    const night0 = C['sky-night'] || '#070b18';
+    const dayTop = blendRGB(C['sky-day'] || '#2c6fb3', '#6b7686', grey * 0.8), dayBot = blendRGB('#9cc9f0', '#a9b1bd', grey * 0.8);
+    const dusk = clamp(1 - Math.abs(cz) / 0.18, 0, 1);
+    R.sky1.setAttribute('stop-color', blendRGB(night0, dayTop, day));
+    R.sky2.setAttribute('stop-color', blendRGB(night0, dusk > 0.3 && day < 0.9 ? '#f39a55' : dayBot, day));
+    R.stars.setAttribute('opacity', (1 - day) * 0.9);
+    const hourAngle = (solarT - 6) / 12; // 0 at 06:00 → 1 at 18:00
+    const ax = 460 - 68 * Math.cos(Math.PI * clamp(hourAngle, 0, 1)), ay = 128 - 68 * Math.sin(Math.PI * clamp(hourAngle, 0, 1));
+    R.sun.setAttribute('cx', ax.toFixed(1)); R.sun.setAttribute('cy', (elev > -0.05 ? ay : 200).toFixed(1));
+    const mh = ((solarT + 12) % 24 - 6) / 12;
+    R.moon.setAttribute('cx', (460 - 68 * Math.cos(Math.PI * clamp(mh, 0, 1))).toFixed(1)); R.moon.setAttribute('cy', (day < 0.6 ? 128 - 60 * Math.sin(Math.PI * clamp(mh, 0, 1)) : 200).toFixed(1));
+    const cloudiness = clamp(1 - kt, 0, 1);
+    R.clouds.forEach((c, k) => { const x = 380 + ((S.t * (6 + k * 2) + k * 47) % 200) - 20; c.setAttribute('transform', `translate(${x.toFixed(1)} ${48 + k * 17})`); c.setAttribute('opacity', (day > 0.2 ? clamp(cloudiness * 1.6 - k * 0.22, 0, 0.95) : clamp(cloudiness - k * 0.3, 0, 0.3)).toFixed(2)); });
+    R.skyT1.textContent = `${Math.round(inp.ghi)} W/m², ${inp.ta.toFixed(0)} °C`;
+    R.skyT2.textContent = day > 0.2 ? `clear-sky index ${kt.toFixed(2)}` : 'night';
+    // solar
+    const pvUsed = f.pvToLoad / ETA_I + f.pvToBatt;
+    R.panels.forEach(p => p.setAttribute('fill-opacity', (0.12 + 0.75 * clamp(inp.ghi / 1000, 0, 1)).toFixed(2)));
+    R.sVal.textContent = fmtKW(pvUsed);
+    R.sSub.textContent = f.curtail > 0.01 ? `curtailed ${f.curtail.toFixed(2)} kW` : `cell ${inp.Tc.toFixed(0)} °C, ${Math.round(100 * pvUsed / cfg.pvKWp)} % of kWp`;
+    // OKFH mini
+    const steps = Math.min(200, Math.round(dtReal / 0.0002));
+    for (let k = 0; k < steps; k++) miniH.step(0.0002);
+    const ox = 820 + miniH.x[0] / 0.026 * 19, oy = 92 + miniH.x[1] / 0.026 * 19;
+    R.okOrb.setAttribute('cx', ox.toFixed(1)); R.okOrb.setAttribute('cy', oy.toFixed(1));
+    miniTrail.push(ox.toFixed(1) + ',' + oy.toFixed(1)); if (miniTrail.length > 40) miniTrail.shift();
+    R.okTrail.setAttribute('points', miniTrail.join(' '));
+    const okmW = okfhUnitW * 1000 * cfg.okfhUnits * (st === 'run' ? 1.6 : 1);
+    R.oVal.textContent = okmW.toFixed(1) + ' mW';
+    R.oSub.textContent = `runs ${Math.floor(okmW / NODE_MW)} sensor nodes`;
+    // BESS
+    const soc = plant.soc;
+    R.cells.forEach((c, k) => { const lvl = clamp(soc * 10 - k, 0, 1); c.setAttribute('opacity', (0.12 + 0.88 * lvl).toFixed(2)); c.setAttribute('fill', soc < 0.2 ? 'var(--bad)' : soc < 0.3 ? 'var(--warn)' : 'var(--bess)'); });
+    R.socT.textContent = Math.round(soc * 100) + '%';
+    const bp = f.dis - f.chg;
+    R.bessMode.textContent = bp > 0.01 ? 'DISCHARGING' : bp < -0.01 ? 'CHARGING' : 'STANDBY';
+    R.bessKW.textContent = (bp > 0 ? '−' : bp < 0 ? '+' : '') + Math.abs(bp).toFixed(2) + ' kW';
+    R.bessE.textContent = `${(soc * cfg.bessKWh).toFixed(1)} of ${cfg.bessKWh} kWh`;
+    // interlink
+    R.iVal.textContent = f.interAC >= 0 ? `DC → AC  ${f.interAC.toFixed(2)} kW` : `AC → DC  ${(-f.interAC).toFixed(2)} kW`;
+    // band
+    R.ctrlMode.textContent = S.view === 'ai' ? 'MODE: AI (MPC)' : 'MODE: RULE-BASED';
+    R.ctrlMode.setAttribute('fill', S.view === 'ai' ? 'var(--accent)' : 'var(--warn)');
+    const nodes = Math.floor(okmW / NODE_MW);
+    R.da1.textContent = `${nodes + 14} sensors online`;
+    R.da2.textContent = `${nodes} OKFH-powered, 14 wired`;
+    R.sens.forEach((c, k) => c.setAttribute('opacity', (0.3 + 0.7 * (Math.sin(S.t * 3 + k * 1.7) > 0.6 ? 1 : 0)).toFixed(2)));
+    const net = f.load - f.hydUsed - pvUsed * ETA_I;
+    R.em[0].textContent = `Demand ${fmtKW(f.load)}`;
+    R.em[1].textContent = `Gasifier: ${st === 'run' ? (plant.gas.mode === 'follow' ? 'load-following' : 'rated output') : ({off:'off',warm:'warming up',fault:'FAULT',maint:'maintenance'})[st]}`;
+    R.em[2].textContent = `BESS: ${bp > 0.01 ? 'covering deficit' : bp < -0.01 ? 'storing surplus' : 'idle'}`;
+    R.em[3].textContent = f.unserved > 0.005 ? `Shedding ${fmtKW(f.unserved)}` : 'All feeders on';
+    R.em[3].setAttribute('fill', f.unserved > 0.005 ? 'var(--bad)' : 'var(--good)');
+    renderAIMini();
+    R.aiOff.setAttribute('opacity', S.view === 'ai' ? 0 : 1);
+    R.sc[0].textContent = `${freq.cur.toFixed(2)} Hz, ${(230 + 3 * Math.sin(S.t * 0.7) - 2 * (f.load / Math.max(0.3, Pscale))).toFixed(0)} V`;
+    const alarms = plant.log.filter(l => l.kind === 'bad' && sim.i - l.i < 180).length + (plant.log.some(l => l.kind === 'warn' && sim.i - l.i < 600) ? 1 : 0);
+    R.sc[1].textContent = `Alarms: ${alarms}`; R.sc[1].setAttribute('fill', alarms ? 'var(--warn)' : 'var(--muted)');
+    R.sc[2].textContent = `Engine health ${Math.round(plant.gas.health * 100)} %`;
+    R.sc[2].setAttribute('fill', plant.gas.health < 0.6 ? 'var(--bad)' : plant.gas.health < 0.85 ? 'var(--warn)' : 'var(--muted)');
+    R.sc[3].textContent = `Uptime ${(100 * (1 - plant.acc.lossOfLoadMin / Math.max(1, sim.i))).toFixed(2)} %`;
+    R.comm.textContent = `${nodes + 14} nodes reporting, last packet ${(1 + (S.t * 7 % 9)).toFixed(0)} s ago`;
+    // loads
+    const night = 1 - day;
+    for (const k of G.CATS) {
+      const b = R.bld[k]; const lk = f.cat[k];
+      const frac = f.load > 0 ? (f.load - f.unserved) / f.load : 1;
+      const share = clamp(lk / Math.max(0.05, Pscale * 0.35), 0, 1);
+      b.win.forEach((w, q) => w.setAttribute('opacity', (frac < 0.5 ? 0.06 : (0.12 + 0.88 * share * (0.35 + 0.65 * night)) * (q % 2 ? 0.92 : 1)).toFixed(2)));
+      b.val.textContent = fmtKW(lk * frac);
+      b.shed.setAttribute('opacity', f.unserved > 0.005 ? 1 : 0);
+      b.out.setAttribute('stroke', f.unserved > 0.005 ? 'var(--bad)' : 'var(--line2)');
+      if (b.mill) { S.mill = (S.mill || 0) + dtReal * 360 * (sim.world.motor[sim.i] ? 2.5 : 0.2); b.mill.setAttribute('transform', `rotate(${S.mill % 360} ${945 + 36} 604)`); }
+    }
+  }
+  function blendRGB(a, b, t) {
+    const parse = c => { if (c.startsWith('#')) { const v = parseInt(c.slice(1), 16); return [v >> 16, (v >> 8) & 255, v & 255]; } const m = c.match(/\d+/g).map(Number); return m; };
+    const A = parse(a), B = parse(b); return `rgb(${A.map((v, i) => Math.round(v * (1 - t) + B[i] * t)).join(',')})`;
+  }
+  function renderAIMini() {
+    const p = sim.plan; if (!p) return;
+    const n = 96; // 24 h at 15 min
+    const x0 = 630, w = 310, y0 = 350, h = 50;
+    const maxP = Math.max(sim.cfg.pvKWp, ...p.fc.slice(0, n).map(q => q.load)) * 1.05;
+    let dpv = `M${x0} ${y0 + h}`, dl = '', ds = '';
+    for (let k = 0; k < n; k++) {
+      const x = x0 + w * k / (n - 1);
+      dpv += ` L${x.toFixed(1)} ${(y0 + h - h * p.fc[k].pv / maxP).toFixed(1)}`;
+      dl += (k ? ' L' : 'M') + x.toFixed(1) + ' ' + (y0 + h - h * p.fc[k].load / maxP).toFixed(1);
+      ds += (k ? ' L' : 'M') + x.toFixed(1) + ' ' + (y0 + h - h * p.traj[k]).toFixed(1);
+    }
+    dpv += ` L${x0 + w} ${y0 + h} Z`;
+    R.aiPV.setAttribute('d', dpv); R.aiLoad.setAttribute('d', dl); R.aiSoc.setAttribute('d', ds);
+    if (p.start >= 0 && p.start < n) { R.aiGas.setAttribute('x', x0 + w * p.start / n); R.aiGas.setAttribute('width', Math.max(2, w * Math.min(p.dur, n - p.start) / n)); }
+    else R.aiGas.setAttribute('width', 0);
+    const g = sim.ai.gas;
+    let txt;
+    if (g.state === 'run' || g.state === 'warm') txt = `Gasifier on, planned stop ${G.fmtClock(p.i + p.startMin + p.durMin)}`;
+    else if (p.start >= 0) txt = `Next gasifier run ${G.fmtClock(p.i + p.startMin)}, ${(p.durMin / 60).toFixed(1)} h`;
+    else txt = `No gasifier needed (36 h), min SoC ${Math.round(Math.min(...p.traj) * 100)} %`;
+    if (g.planned) txt = `Bearing repair booked ${G.fmtClock(g.planned.t0)} (solar window)`;
+    R.aiT.textContent = txt;
+  }
+
+  // =====================================================================
+  //  TREND CHART
+  // =====================================================================
+  function renderTrend() {
+    const { ctx, w, h } = fitCanvas($('#trend'));
+    ctx.clearRect(0, 0, w, h);
+    const hist = sim.hist[S.view], cfg = sim.cfg;
+    const back = 30 * 60, fwd = 18 * 60, i = sim.i;
+    const t0 = i - back, t1 = i + fwd;
+    const padL = 40, padR = 40, padT = 18, padB = 22;
+    const X = t => padL + (w - padL - padR) * (t - t0) / (t1 - t0);
+    // y scale
+    let ymax = 0.2, ymin = 0;
+    const idx0 = Math.max(0, hist.length - back);
+    for (let k = idx0; k < hist.length; k++) { const r = hist[k]; const sup = r[0] + r[1] + r[2] + Math.max(0, r[3]); ymax = Math.max(ymax, sup, r[4]); ymin = Math.min(ymin, Math.min(0, r[3])); }
+    if (sim.plan) for (const q of sim.plan.fc.slice(0, fwd / 15)) ymax = Math.max(ymax, q.pv);
+    const nice = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; };
+    ymax = nice(ymax * 1.08); ymin = ymin < 0 ? -nice(-ymin * 1.1) : 0;
+    const Y = v => padT + (h - padT - padB) * (ymax - v) / (ymax - ymin);
+    const YS = s => padT + (h - padT - padB) * (1 - s);
+    // night shading
+    ctx.fillStyle = C.line; ctx.globalAlpha = 0.35;
+    for (let t = Math.floor(t0 / 1440) * 1440 - 1440; t < t1; t += 1440) {
+      const a = Math.max(t0, t + 18.5 * 60), b = Math.min(t1, t + 1440 + 6 * 60);
+      if (b > a) ctx.fillRect(X(a), padT, X(b) - X(a), h - padT - padB);
+    }
+    ctx.globalAlpha = 1;
+    // grid
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.font = '11px ' + css('--f-mono'); ctx.fillStyle = C.muted;
+    const step = nice((ymax - ymin) / 4);
+    for (let v = Math.ceil(ymin / step) * step; v <= ymax + 1e-9; v += step) { ctx.beginPath(); ctx.moveTo(padL, Y(v)); ctx.lineTo(w - padR, Y(v)); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(v.toFixed(step < 1 ? 1 : 0), padL - 6, Y(v) + 4); }
+    for (const s of [0, 0.5, 1]) ctx.fillText((s * 100) + '%', w - 6, YS(s) + 4);
+    ctx.textAlign = 'center';
+    const tstep = w < 700 ? 720 : 360;
+    for (let t = Math.ceil(t0 / tstep) * tstep; t < t1; t += tstep) { if (t < 0) continue; const x = X(t); const lbl = t % 1440 === 0 ? 'Day ' + (t / 1440 + 1) : G.fmtClock(t).slice(-5); ctx.fillText(lbl, x, h - 6); }
+    // stacked areas
+    const series = [[2, C.hydro], [0, C.solar], [1, C.bio], [3, C.bess]];
+    const k0 = Math.max(0, hist.length - back), stepK = 3;
+    const base = new Float32Array(hist.length);
+    for (const [col, color] of series) {
+      ctx.beginPath(); let first = true;
+      for (let k = k0; k < hist.length; k += stepK) { const v = col === 3 ? Math.max(0, hist[k][3]) : hist[k][col]; const x = X(i - (hist.length - k)); const y = Y(base[k] + v); if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y); }
+      for (let k = Math.floor((hist.length - 1 - k0) / stepK) * stepK + k0; k >= k0; k -= stepK) ctx.lineTo(X(i - (hist.length - k)), Y(base[k]));
+      ctx.closePath(); ctx.fillStyle = color; ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
+      for (let k = k0; k < hist.length; k++) base[k] += col === 3 ? Math.max(0, hist[k][3]) : hist[k][col];
+    }
+    // charging (negative)
+    ctx.beginPath(); ctx.moveTo(X(i - (hist.length - k0)), Y(0));
+    for (let k = k0; k < hist.length; k += stepK) ctx.lineTo(X(i - (hist.length - k)), Y(Math.min(0, hist[k][3])));
+    ctx.lineTo(X(i), Y(0)); ctx.closePath(); ctx.fillStyle = C.bess; ctx.globalAlpha = 0.25; ctx.fill(); ctx.globalAlpha = 1;
+    // unserved
+    ctx.fillStyle = C.bad;
+    for (let k = k0; k < hist.length; k++) if (hist[k][6] > 0.005) ctx.fillRect(X(i - (hist.length - k)), padT, 1.5, h - padT - padB);
+    // load line
+    ctx.beginPath(); for (let k = k0; k < hist.length; k += stepK) { const x = X(i - (hist.length - k)), y = Y(hist[k][4]); k === k0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1.6; ctx.stroke();
+    // SoC
+    ctx.beginPath(); for (let k = k0; k < hist.length; k += stepK) { const x = X(i - (hist.length - k)), y = YS(hist[k][5]); k === k0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.strokeStyle = C.bess; ctx.lineWidth = 2.2; ctx.stroke();
+    // forecast (AI view)
+    if (sim.plan && S.view === 'ai') {
+      const p = sim.plan, n = Math.min(p.fc.length, fwd / 15);
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); for (let k = 0; k < n; k++) { const x = X(p.i + k * 15), y = Y(p.fc[k].pv); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.strokeStyle = C.solar; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.beginPath(); for (let k = 0; k < n; k++) { const x = X(p.i + k * 15), y = Y(p.fc[k].load); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.strokeStyle = C.fg; ctx.globalAlpha = .6; ctx.lineWidth = 1.2; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath(); for (let k = 0; k < n; k++) { const x = X(p.i + k * 15), y = YS(p.traj[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.strokeStyle = C.bess; ctx.lineWidth = 2; ctx.stroke();
+      ctx.setLineDash([]);
+      if (p.start >= 0) { ctx.fillStyle = C.bio; ctx.globalAlpha = 0.18; const a = X(p.i + p.startMin), b = X(Math.min(t1, p.i + p.startMin + p.durMin)); ctx.fillRect(a, padT, b - a, h - padT - padB); ctx.globalAlpha = 1; }
+      ctx.fillStyle = C.muted; ctx.textAlign = 'left'; ctx.font = '11px ' + css('--f-body'); ctx.fillText('AI forecast →', X(i) + 6, padT + 10);
+    } else if (S.view === 'rule') { ctx.fillStyle = C.muted; ctx.textAlign = 'left'; ctx.font = '11px ' + css('--f-body'); ctx.fillText('no forecast (rule-based)', X(i) + 6, padT + 10); }
+    // reserve line
+    ctx.setLineDash([2, 3]); ctx.strokeStyle = C.warn; ctx.beginPath(); ctx.moveTo(padL, YS(S.view === 'ai' ? G.AI.reserve : G.RULE.start)); ctx.lineTo(w - padR, YS(S.view === 'ai' ? G.AI.reserve : G.RULE.start)); ctx.stroke(); ctx.setLineDash([]);
+    // now
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(i), padT - 4); ctx.lineTo(X(i), h - padB); ctx.stroke();
+    // legend
+    const lg = [['Hydro', C.hydro, 0], ['Solar', C.solar, 0], ['Biomass', C.bio, 0], ['Battery out / in', C.bess, 0], ['Demand (kW)', C.fg, 1], ['Battery SoC (right axis)', C.bess, 1]];
+    ctx.font = '11px ' + css('--f-body'); ctx.textAlign = 'left';
+    let lx = padL + 4;
+    for (const [t, c, line] of lg) { ctx.fillStyle = c; if (line) ctx.fillRect(lx, 7, 12, 2); else ctx.fillRect(lx, 4, 10, 7); ctx.fillStyle = C.muted; ctx.fillText(t, lx + 15, 11); lx += ctx.measureText(t).width + 28; if (lx > w - 160) break; }
+  }
+
+  // =====================================================================
+  //  FREQUENCY SCOPE
+  // =====================================================================
+  const freq = { buf: new Float32Array(240), k: 0, cur: 50, tr: null, nadir: 50 };
+  function updateFreq(now) {
+    let df = 0.006 * Math.sin(now / 700) + 0.004 * Math.sin(now / 173);
+    if (sim.fTransient) { freq.tr = { t0: now, dp: sim.fTransient.dp }; sim.fTransient = null; freq.nadir = 50; }
+    if (freq.tr) {
+      const t = (now - freq.tr.t0) / 1000;
+      const A = Math.min(0.9, 0.42 * freq.tr.dp / sim.cfg.bessKW);
+      df -= A * 1.6 * (Math.exp(-t / 0.55) - Math.exp(-t / 0.07));
+      if (t > 5) freq.tr = null;
+    }
+    freq.cur = 50 + df; freq.nadir = Math.min(freq.nadir, freq.cur);
+    freq.buf[freq.k++ % freq.buf.length] = freq.cur;
+  }
+  function renderFreq() {
+    const { ctx, w, h } = fitCanvas($('#fscope'));
+    ctx.clearRect(0, 0, w, h);
+    const lo = 49.4, hi = 50.2, Y = v => h * (hi - v) / (hi - lo);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    for (const v of [50, 49.8, 49.5]) { ctx.beginPath(); ctx.moveTo(0, Y(v)); ctx.lineTo(w, Y(v)); ctx.stroke(); }
+    ctx.fillStyle = C.faint; ctx.font = '10px ' + css('--f-mono'); ctx.fillText('50.0', 2, Y(50) - 2); ctx.fillText('49.5', 2, Y(49.5) - 2);
+    ctx.beginPath(); const n = freq.buf.length;
+    for (let k = 0; k < n; k++) { const v = freq.buf[(freq.k + k) % n] || 50; const x = w * k / (n - 1); k ? ctx.lineTo(x, Y(v)) : ctx.moveTo(x, Y(v)); }
+    ctx.strokeStyle = Math.abs(freq.cur - 50) > 0.2 ? C.warn : C.good; ctx.lineWidth = 1.6; ctx.stroke();
+    $('#k-f').textContent = freq.cur.toFixed(2) + ' Hz' + (freq.tr ? `, nadir ${freq.nadir.toFixed(2)}` : '');
+  }
+
+  // =====================================================================
+  //  RAIL (KPIs, comparison, log)
+  // =====================================================================
+  function renderRail() {
+    const p = sim[S.view], f = p.flow;
+    $('#k-load').textContent = fmtKW(f.load);
+    $('#k-soc').textContent = Math.round(p.soc * 100) + ' %';
+    const pvUsed = f.pvToLoad / ETA_I + f.pvToBatt;
+    const ren = pvUsed + f.hydUsed + (f.gasOut - f.gasDump);
+    const mixv = [['Solar', f.pvToLoad], ['Hydro', f.hydToLoad], ['Biomass', f.gasToLoad], ['Battery', f.dis * ETA_I]];
+    const tot = mixv.reduce((q, m) => q + m[1], 0) || 1; mixv.sort((x, y) => y[1] - x[1]);
+    $('#k-ren').textContent = `${mixv[0][0]} ${Math.round(100 * mixv[0][1] / tot)} %`;
+    const sup = $('#k-sup'); sup.textContent = f.unserved > 0.005 ? 'Shedding' : 'Normal'; sup.style.color = f.unserved > 0.005 ? 'var(--bad)' : 'var(--good)';
+    const a = G.kpis(sim.ai, sim.cfg), r = G.kpis(sim.rule, sim.cfg);
+    const rows = [
+      ['Biomass fuel', a.fuelKg, r.fuelKg, 'kg', 1],
+      ['Engine hours', a.gasHours, r.gasHours, 'h', 1],
+      ['Fuel per kWh', a.sfc, r.sfc, '', 2],
+      ['Unserved', a.unserved, r.unserved, 'kWh', 2],
+      ['Solar wasted', a.curtail, r.curtail, 'kWh', 1],
+    ];
+    let html = '<tr><th></th><th>AI</th><th>Rule</th></tr>';
+    for (const [n, x, y, u, d] of rows) {
+      const better = x < y - 1e-6 ? 'a' : y < x - 1e-6 ? 'r' : '';
+      html += `<tr><td>${n}${u ? ' <span style="color:var(--faint)">' + u + '</span>' : ''}</td><td class="${better === 'a' ? 'win' : ''}">${x.toFixed(d)}</td><td class="${better === 'r' ? 'win' : ''}">${y.toFixed(d)}</td></tr>`;
+    }
+    $('#cmpTbl').innerHTML = html;
+    void ren;
+    // log
+    const L = p.log;
+    if (L.length !== lastLogLen || lastLogView !== S.view || (L.length && L[L.length - 1] !== renderRail.lastItem)) {
+      lastLogLen = L.length; lastLogView = S.view; renderRail.lastItem = L[L.length - 1];
+      $('#logTitle').textContent = S.view === 'ai' ? 'Event log (AI)' : 'Event log (rule-based)';
+      $('#log').innerHTML = L.slice().reverse().map(l => `<p class="${l.kind}"><time>${G.fmtClock(l.i)}</time>${escapeHTML(l.msg)}</p>`).join('');
+    }
+  }
+  const escapeHTML = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  // =====================================================================
+  //  COMPARE TAB
+  // =====================================================================
+  function renderCompare() {
+    for (const k of ['ai', 'rule']) {
+      const { ctx, w, h } = fitCanvas($('#c-' + k));
+      ctx.clearRect(0, 0, w, h);
+      const hist = sim.hist[k]; const span = Math.min(hist.length, 72 * 60), k0 = hist.length - span;
+      const padL = 34, padR = 8, padT = 8, padB = 20;
+      const X = j => padL + (w - padL - padR) * (j - k0) / Math.max(1, 72 * 60);
+      const YS = s => padT + (h - padT - padB) * (1 - s);
+      ctx.font = '10px ' + css('--f-mono'); ctx.fillStyle = C.muted; ctx.strokeStyle = C.line;
+      for (const s of [0, 0.25, 0.5, 0.75, 1]) { ctx.beginPath(); ctx.moveTo(padL, YS(s)); ctx.lineTo(w - padR, YS(s)); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(s * 100 + '%', padL - 4, YS(s) + 3); }
+      // gas band
+      ctx.fillStyle = C.bio; ctx.globalAlpha = 0.3;
+      for (let j = k0; j < hist.length; j++) if (hist[j][1] > 0.01) ctx.fillRect(X(j), padT, Math.max(1, X(j + 1) - X(j)) + 0.3, h - padT - padB);
+      ctx.globalAlpha = 1; ctx.fillStyle = C.bad;
+      for (let j = k0; j < hist.length; j++) if (hist[j][6] > 0.005) ctx.fillRect(X(j), padT, 2, h - padT - padB);
+      // PV available (scaled) for context
+      ctx.beginPath(); const pk = sim.cfg.pvKWp;
+      for (let j = k0; j < hist.length; j += 4) { const x = X(j), y = YS(Math.min(1, hist[j][7] / pk)); j === k0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.strokeStyle = C.solar; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath(); for (let j = k0; j < hist.length; j += 2) { const x = X(j), y = YS(hist[j][5]); j === k0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.strokeStyle = C.bess; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.textAlign = 'left'; ctx.font = '11px ' + css('--f-body');
+      ctx.fillText('Battery SoC (teal), solar available (gold), gasifier running (green band), last 72 h', padL, h - 5);
+      const K = G.kpis(sim[k], sim.cfg);
+      $('#ct-' + k).innerHTML = [['Biomass fuel used', K.fuelKg.toFixed(1) + ' kg'], ['Gas-engine running hours', K.gasHours.toFixed(1) + ' h'], ['Engine starts', K.starts], ['Fuel per kWh generated', K.sfc ? K.sfc.toFixed(2) + ' kg' : '-'], ['Unserved energy', K.unserved.toFixed(2) + ' kWh'], ['Solar curtailed', K.curtail.toFixed(1) + ' kWh'], ['Battery equivalent cycles', K.cycles.toFixed(2)]].map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+    }
+  }
+  let benchBusy = false;
+  function runBench() {
+    if (benchBusy) return; benchBusy = true;
+    const seed = +$('#benchSeed').value, days = 14, bp = $('#benchPreset').value;
+    const b = G.createSim({ preset: bp, season: S.season, days: days + 2, seed, okfhPerUnitW: okfhUnitW });
+    const total = days * 1440; const prog = $('#benchProg');
+    $('#benchMeta').textContent = `${G.PRESETS[bp].label}, ${S.season === 'dry' ? 'dry season' : 'rainy season'}`;
+    $('#benchOut').innerHTML = '<p class="lead">Running…</p>';
+    function chunk() {
+      const t = performance.now();
+      while (b.i < total && performance.now() - t < 28) b.step();
+      prog.style.width = (100 * b.i / total).toFixed(1) + '%';
+      if (b.i < total) return setTimeout(chunk, 0);
+      benchBusy = false;
+      const a = G.kpis(b.ai, b.cfg), r = G.kpis(b.rule, b.cfg);
+      const M = [
+        ['Biomass fuel (adjusted for final SoC)', 'fuelAdjKg', 'kg', 1],
+        ['Gas-engine running hours', 'gasHours', 'h', 1],
+        ['Fuel per kWh generated', 'sfc', 'kg/kWh', 2],
+        ['Engine starts', 'starts', '', 0],
+        ['Unserved energy', 'unserved', 'kWh', 2],
+        ['Solar energy curtailed', 'curtail', 'kWh', 1],
+      ];
+      let html = '<div class="benchrow benchhead"><span class="lab">Metric</span><span>AI (MPC)</span><span>Rule-based</span><span style="text-align:right">Change</span></div>';
+      for (const [n, key, u, d] of M) {
+        const x = Math.max(0, a[key]), y = Math.max(0, r[key]), mx = Math.max(x, y, 1e-9);
+        const pct = y > 1e-6 ? (100 * (x - y) / y) : (x > 1e-6 ? 100 : 0);
+        const good = x < y - 1e-6, bad = x > y + 1e-6;
+        html += `<div class="benchrow"><span class="lab">${n}</span>
+          <div class="b"><i style="width:${(100 * x / mx).toFixed(1)}%;background:var(--accent);opacity:.75"></i><em>${x.toFixed(d)} ${u}</em></div>
+          <div class="b"><i style="width:${(100 * y / mx).toFixed(1)}%;background:var(--warn);opacity:.6"></i><em>${y.toFixed(d)} ${u}</em></div>
+          <span class="d" style="color:${good ? 'var(--good)' : bad ? 'var(--bad)' : 'var(--muted)'}">${Math.abs(pct) < 0.5 ? 'same' : (pct > 0 ? '+' : '−') + Math.abs(pct).toFixed(0) + ' %'}</span></div>`;
+      }
+      const saved = r.fuelAdjKg - a.fuelAdjKg;
+      html += `<p class="lead" style="margin-top:6px">${a.gasHours + r.gasHours < 0.01 ? 'Gasifier not required in this period (PV + hydro + BESS cover the load), so both controllers give identical results. ' : ''}Fuel corrected for final SoC. Weather: ${b.world.regimes.slice(0, days).join(', ')}.</p>`;
+      $('#benchOut').innerHTML = html;
+    }
+    setTimeout(chunk, 20);
+  }
+
+  // =====================================================================
+  //  OKFH LAB
+  // =====================================================================
+  const lab = { h: O.createOKFH({ fp: 3.0, RL: 2600 }), type: 'truck', amp: 0.15, trail: [], scope: [], pAvg: 0, vPk: 0, ep: { load: 0, copper: 0, viscous: 0 }, target: { fp: null, RL: null }, tuneMsg: '', zc: [] };
+  function labInit() {
+    const sel = $('#lx'); sel.innerHTML = Object.entries(O.EXCITATIONS).map(([k, e]) => `<option value="${k}">${e.name}</option>`).join('');
+    sel.value = lab.type;
+    labSetType(lab.type);
+    sel.onchange = () => labSetType(sel.value);
+    $('#lamp').oninput = e => { lab.amp = +e.target.value; lab.h.setExcitation(lab.type, lab.amp, 9); labLabels(); };
+    $('#lfp').oninput = e => { lab.h.p.fp = +e.target.value; $('#ltune').checked = false; labLabels(); };
+    $('#lrl').oninput = e => { lab.h.p.RL = Math.pow(10, +e.target.value); $('#lmppt').checked = false; labLabels(); };
+    $('#ltune').onchange = e => { if (e.target.checked) setTimeout(() => twinTune('fp'), 30); else lab.target.fp = null; };
+    $('#lmppt').onchange = e => { if (e.target.checked) setTimeout(() => twinTune('RL'), 30); else lab.target.RL = null; };
+  }
+  // AI tuning via a digital twin: replay the measured excitation class through the
+  // harvester model for candidate settings, pick the best, then move the hardware there.
+  function twinTune(which) {
+    const h = lab.h, t0 = performance.now();
+    const fpC = [1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 13, 16, 20, 23, 24, 24.7, 25, 26, 28];
+    const rlC = [100, 200, 300, 400, 500, 650, 900, 1300, 2000, 2600, 4000];
+    const base = O.benchmark(lab.type, lab.amp, h.p.fp, h.p.RL, 5, 4);
+    let best = { v: which === 'fp' ? h.p.fp : h.p.RL, P: base }, n = 0;
+    for (const v of which === 'fp' ? fpC : rlC) {
+      const P = which === 'fp' ? O.benchmark(lab.type, lab.amp, v, h.p.RL, 5, 4) : O.benchmark(lab.type, lab.amp, h.p.fp, v, 5, 4);
+      n++; if (P > best.P) best = { v, P };
+    }
+    lab.target[which] = best.v;
+    lab.tuneMsg = `${which === 'fp' ? 'f_n' : 'R_L'} = ${which === 'fp' ? best.v + ' Hz' : best.v + ' Ω'} (${n} cases, ${(base * 1000).toFixed(2)} → ${(best.P * 1000).toFixed(2)} mW)`;
+  }
+  function labSetType(t) {
+    lab.type = t; const e = O.EXCITATIONS[t];
+    lab.amp = e.amp; $('#lamp').value = e.amp;
+    lab.h.reset(); lab.h.setExcitation(t, lab.amp, 9);
+    lab.h.p.fp = t === 'truck' ? 6 : t === 'foot' ? 4 : 18; $('#lfp').value = lab.h.p.fp;
+    lab.h.p.RL = 2600; $('#lrl').value = Math.log10(2600);
+    $('#ltune').checked = false; $('#lmppt').checked = false; lab.target = { fp: null, RL: null }; lab.tuneMsg = '';
+    lab.pAvg = 0; lab.ep = { load: 0, copper: 0, viscous: 0 }; lab.trail = []; lab.vPk = 0;
+    $('#lxdesc').textContent = e.desc;
+    labLabels();
+  }
+  function labLabels() {
+    $('#lampv').textContent = lab.amp.toFixed(2) + ' g';
+    $('#lfpv').textContent = lab.h.p.fp.toFixed(1) + ' Hz';
+    $('#lrlv').textContent = Math.round(lab.h.p.RL) + ' Ω';
+  }
+  function labStep(dtReal) {
+    const h = lab.h, dt = 0.0002;
+    const n = Math.min(250, Math.round(Math.min(dtReal, 0.05) / dt));
+    const E0 = { load: h.E.load, copper: h.E.copper, viscous: h.E.viscous };
+    let vpk = 0;
+    for (let k = 0; k < n; k++) {
+      h.step(dt);
+      vpk = Math.max(vpk, Math.abs(h.emf[0]), Math.abs(h.emf[1]));
+      if (k % 10 === 0) { lab.scope.push([h.aBase[0] / 9.81, h.emf[0], h.emf[1], h.pLoad * 1000]); if (lab.scope.length > 1500) lab.scope.shift(); }
+      // zero-crossing estimate of excitation frequency (for display)
+      const s = h.aTip[0] > 0; if (lab.zcPrev !== undefined && s !== lab.zcPrev) lab.zc.push(h.t); lab.zcPrev = s;
+    }
+    while (lab.zc.length && h.t - lab.zc[0] > 3) lab.zc.shift();
+    const T = n * dt;
+    const dE = { load: h.E.load - E0.load, copper: h.E.copper - E0.copper, viscous: h.E.viscous - E0.viscous };
+    const a = Math.exp(-T / 4);
+    for (const k in dE) lab.ep[k] = a * lab.ep[k] + (1 - a) * dE[k] / T;
+    lab.pAvg = lab.ep.load;
+    lab.vPk = Math.max(vpk, lab.vPk * Math.exp(-T / 1.5));
+    lab.trail.push([h.x[0], h.x[1]]); if (lab.trail.length > 90) lab.trail.shift();
+    // move the hardware toward the twin's optimum (tip-mass actuator / PMIC impedance)
+    let moved = false;
+    if (lab.target.fp != null && Math.abs(h.p.fp - lab.target.fp) > 0.01) { h.p.fp += (lab.target.fp - h.p.fp) * Math.min(1, T * 1.5); moved = true; }
+    if (lab.target.RL != null && Math.abs(Math.log10(h.p.RL / lab.target.RL)) > 0.002) { h.p.RL *= Math.pow(lab.target.RL / h.p.RL, Math.min(1, T * 1.5)); moved = true; }
+    if (moved) { $('#lrl').value = Math.log10(h.p.RL); $('#lfp').value = h.p.fp; labLabels(); }
+  }
+  function renderLab() {
+    const h = lab.h, P = h.p;
+    const { ctx, w, h: H } = fitCanvas($('#labc'));
+    ctx.clearRect(0, 0, w, H);
+    const narrow = w < 640;
+    const TOP = narrow ? 120 : 78;
+    // ---------- conversion chain (mirrors proposal figure) ----------
+    {
+      const r0 = Math.hypot(h.x[0], h.x[1]);
+      const inst = { a: Math.hypot(h.aBase[0], h.aBase[1]) / 9.81, tip: Math.hypot(h.aTip[0], h.aTip[1]) / 9.81, v: Math.hypot(h.v[0], h.v[1]), gap: Math.max(0, P.rWall - r0) * 1000, e: Math.hypot(h.emf[0], h.emf[1]), p: lab.pAvg * 1000 };
+      lab.sm = lab.sm || inst; for (const k in inst) lab.sm[k] = lab.sm[k] * 0.9 + inst[k] * 0.1;
+      const m = lab.sm;
+      const st = [['Vibration', m.a.toFixed(2) + ' g', m.a / Math.max(0.05, lab.amp)], ['Pole resonator', m.tip.toFixed(2) + ' g', m.tip / Math.max(0.1, lab.amp * 4)], ['Orb on ferrofluid', m.v.toFixed(2) + ' m/s', m.v / 0.4], ['Repelling rim', m.gap.toFixed(1) + ' mm gap', 1 - m.gap / 20], ['Copper coils', m.e.toFixed(2) + ' V', m.e / Math.max(0.3, lab.vPk)], ['PMIC → storage', (m.p < 1 ? (m.p * 1000).toFixed(0) + ' µW' : m.p.toFixed(2) + ' mW'), m.p / 1.2], ['Sensor nodes', (m.p / NODE_MW).toFixed(1), m.p / NODE_MW / 3]];
+      const cols = narrow ? 4 : 7, gapx = 8, bw = (w - 20 - gapx * (cols - 1)) / cols, bh = 46;
+      st.forEach(([t, v, act], k) => {
+        const cx = 10 + (k % cols) * (bw + gapx), cy = 10 + Math.floor(k / cols) * (bh + 8);
+        const a = clamp(act, 0, 1);
+        ctx.fillStyle = C.panel2; ctx.strokeStyle = C.okfh; ctx.globalAlpha = 1; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx, cy, bw, bh, 7) : ctx.rect(cx, cy, bw, bh); ctx.fill();
+        ctx.globalAlpha = 0.25 + 0.75 * a; ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.fillStyle = C.okfh; ctx.globalAlpha = 0.12 + 0.3 * a; ctx.fillRect(cx + 1, cy + bh - 5, (bw - 2) * a, 4); ctx.globalAlpha = 1;
+        ctx.fillStyle = C.muted; ctx.font = (narrow ? '10px ' : '11.5px ') + css('--f-body'); ctx.textAlign = 'left'; ctx.fillText(t, cx + 6, cy + 16);
+        ctx.fillStyle = C.fg; ctx.font = (narrow ? '600 11.5px ' : '600 14px ') + css('--f-mono'); ctx.fillText(v, cx + 6, cy + 35);
+        if (k % cols !== cols - 1 && k < st.length - 1) { ctx.fillStyle = C.okfh; ctx.beginPath(); const ax = cx + bw + 1, ay = cy + bh / 2; ctx.moveTo(ax, ay - 4); ctx.lineTo(ax + gapx - 2, ay); ctx.lineTo(ax, ay + 4); ctx.fill(); }
+      });
+    }
+    // ---------- side view ----------
+    const sw = narrow ? w * 0.42 : w * 0.36, cx0 = sw * 0.5, base = H - 40;
+    const ex = 30; // motion exaggeration
+    const gshake = h.aBase[0] / 9.81 * 6;
+    ctx.fillStyle = C.panel2; ctx.fillRect(10, base, sw - 20, 26);
+    ctx.strokeStyle = C.line2; ctx.strokeRect(10 + gshake, base, sw - 20, 26);
+    ctx.fillStyle = C.muted; ctx.font = '11px ' + css('--f-body'); ctx.textAlign = 'center';
+    ctx.fillText(lab.type === 'truck' || lab.type === 'foot' ? 'roadway slab / walkway' : 'machine housing', cx0, base + 17);
+    const poleH = Math.min((H - TOP) * 0.5, 240);
+    const tipX = cx0 + gshake + h.u[0] * 1000 * ex * 0.12 * (poleH / 200);
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx0 + gshake, base); ctx.quadraticCurveTo(cx0 + gshake, base - poleH * 0.6, tipX, base - poleH); ctx.stroke();
+    const capR = Math.min(72, sw * 0.2), capY = base - poleH - capR * 0.85;
+    const tilt = 1.5 * h.u[0] / P.Lp * ex;
+    ctx.save(); ctx.translate(tipX, capY); ctx.rotate(tilt);
+    ctx.strokeStyle = C.okfh; ctx.lineWidth = 2; ctx.fillStyle = C.panel2;
+    ctx.beginPath(); ctx.arc(0, 0, capR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // coil hatching
+    ctx.strokeStyle = C.solar; ctx.globalAlpha = 0.25 + 0.6 * Math.min(1, Math.abs(h.emf[0]) / Math.max(0.3, lab.vPk));
+    for (let k = -4; k <= 4; k++) { ctx.beginPath(); ctx.arc(0, 0, capR + 4, Math.PI * (0.5 + k * 0.1) - 0.04, Math.PI * (0.5 + k * 0.1) + 0.04); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    // bowl and ferrofluid
+    ctx.strokeStyle = C.line2; ctx.beginPath(); ctx.arc(0, -capR * 0.2, capR * 0.9, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+    const ox = h.x[0] / (P.rWall + P.rOrb) * capR * 0.8;
+    ctx.fillStyle = '#1a1a1a'; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.ellipse(ox, capR * 0.62, capR * 0.32, capR * 0.08, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = C.fg; ctx.strokeStyle = C.okfh; ctx.beginPath(); ctx.arc(ox, capR * 0.3, capR * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = C.muted; ctx.textAlign = 'left';
+    if (!narrow) ctx.fillText(`side view, pole & tilt ×${ex}`, 14, TOP + 14);
+    if (!narrow) ctx.fillText(`tip ${(Math.hypot(h.u[0], h.u[1]) * 1000).toFixed(2)} mm, ${(Math.hypot(h.aTip[0], h.aTip[1]) / 9.81).toFixed(2)} g`, 14, TOP + 30);
+    const fz = lab.zc.length > 4 ? (lab.zc.length - 1) / 2 / (lab.zc[lab.zc.length - 1] - lab.zc[0]) : 0;
+    if (!narrow) ctx.fillText(`excitation ≈ ${fz ? fz.toFixed(1) : '-'} Hz, pole ${P.fp.toFixed(1)} Hz`, 14, TOP + 46);
+
+    // ---------- top view ----------
+    const tvx = sw + (w - sw) / 2, tvy = TOP + (H - TOP) / 2;
+    const Rpx = Math.max(40, Math.min((w - sw) / 2 - 30, (H - TOP) / 2 - 30, 230));
+    const sc = Rpx / (P.rWall + P.rOrb);
+    // coil grid
+    const ex0 = Math.min(1, Math.abs(h.emf[0]) / Math.max(0.3, lab.vPk)), ey0 = Math.min(1, Math.abs(h.emf[1]) / Math.max(0.3, lab.vPk));
+    for (let k = 0; k < 36; k++) {
+      const a = k / 36 * Math.PI * 2;
+      const wgt = Math.abs(Math.cos(a)) * ex0 + Math.abs(Math.sin(a)) * ey0;
+      ctx.strokeStyle = C.solar; ctx.globalAlpha = 0.12 + 0.75 * wgt; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(tvx, tvy, Rpx + 12, a, a + Math.PI * 2 / 36 * 0.8); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    ctx.fillStyle = C.panel2; ctx.strokeStyle = C.okfh; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(tvx, tvy, Rpx, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // bowl contour rings
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    for (const f of [0.25, 0.5, 0.75]) { ctx.beginPath(); ctx.arc(tvx, tvy, Rpx * f, 0, Math.PI * 2); ctx.stroke(); }
+    // rim magnets
+    const r = Math.hypot(h.x[0], h.x[1]), gap = P.rWall - r;
+    const ang = Math.atan2(h.x[1], h.x[0]);
+    for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2;
+      let d = Math.abs(((a - ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      const hot = gap < 0.006 ? Math.max(0, 1 - d / 0.6) * (1 - gap / 0.006) : 0;
+      ctx.save(); ctx.translate(tvx + Math.cos(a) * (Rpx - 6), tvy + Math.sin(a) * (Rpx - 6)); ctx.rotate(a);
+      ctx.fillStyle = hot > 0.05 ? C.dc : C.line2; ctx.globalAlpha = 0.55 + 0.45 * hot;
+      ctx.fillRect(-5, -9, 10, 18); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.fg; ctx.font = 'bold 8px ' + css('--f-mono'); ctx.textAlign = 'center'; ctx.rotate(Math.PI / 2); ctx.fillText('N', 0, 3);
+      ctx.restore();
+    }
+    // trail
+    ctx.beginPath();
+    lab.trail.forEach(([x, y], k) => { const X = tvx + x * sc, Y = tvy + y * sc; k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+    ctx.strokeStyle = C.okfh; ctx.globalAlpha = 0.55; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
+    // ferrofluid + orb
+    const OX = tvx + h.x[0] * sc, OY = tvy + h.x[1] * sc, OR = P.rOrb * sc;
+    ctx.fillStyle = '#111'; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(OX + 3, OY + 4, OR * 1.08, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    const gr = ctx.createRadialGradient(OX - OR * 0.35, OY - OR * 0.35, OR * 0.1, OX, OY, OR);
+    gr.addColorStop(0, '#f4f6fb'); gr.addColorStop(0.6, '#9aa3b5'); gr.addColorStop(1, '#4a5263');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(OX, OY, OR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1b2030'; ctx.font = 'bold 11px ' + css('--f-mono'); ctx.textAlign = 'center'; ctx.fillText('NdFeB', OX, OY + 4);
+    // velocity arrow
+    const vx = h.v[0], vy = h.v[1], vm = Math.hypot(vx, vy);
+    if (vm > 0.01) { ctx.strokeStyle = C.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(OX, OY); ctx.lineTo(OX + vx * 120, OY + vy * 120); ctx.stroke(); }
+    ctx.fillStyle = C.muted; ctx.font = '11px ' + css('--f-body'); ctx.textAlign = 'left';
+    if (!narrow) ctx.fillText('top view, true scale, Ø25 mm orb on ferrofluid film', sw + 10, TOP + 14);
+    if (!narrow) ctx.fillText(`orb speed ${(vm).toFixed(2)} m/s, rim gap ${(Math.max(0, gap) * 1000).toFixed(1)} mm`, sw + 10, TOP + 30);
+    if (!narrow) { ctx.textAlign = 'right'; ctx.fillStyle = C.solar; ctx.fillText('copper coil grid lights with induced EMF', w - 10, H - 10);
+    ctx.fillStyle = C.dc; ctx.fillText('repelling rim magnets glow when the orb approaches', w - 10, H - 26); }
+
+    // ---------- scope ----------
+    const sv = fitCanvas($('#labscope'));
+    const c2 = sv.ctx, W = sv.w, HH = sv.h; c2.clearRect(0, 0, W, HH);
+    const rows = [['base accel (g)', 0, C.muted], ['coil EMF x / y (V)', 1, C.solar], ['load power (mW)', 3, C.okfh]];
+    const rh = (HH - 6) / 3;
+    rows.forEach(([lbl, idx, col], q) => {
+      const y0 = 3 + q * rh;
+      let mx = 1e-6; for (const s of lab.scope) { mx = Math.max(mx, Math.abs(s[idx]), idx === 1 ? Math.abs(s[2]) : 0); }
+      c2.strokeStyle = C.line; c2.beginPath(); c2.moveTo(0, y0 + (idx === 3 ? rh - 4 : rh / 2)); c2.lineTo(W, y0 + (idx === 3 ? rh - 4 : rh / 2)); c2.stroke();
+      const plot = (j, color) => {
+        c2.beginPath();
+        lab.scope.forEach((s, k) => { const x = W * k / 1499; const v = s[j]; const y = idx === 3 ? y0 + rh - 4 - (rh - 10) * v / mx : y0 + rh / 2 - (rh / 2 - 4) * v / mx; k ? c2.lineTo(x, y) : c2.moveTo(x, y); });
+        c2.strokeStyle = color; c2.lineWidth = 1.3; c2.stroke();
+      };
+      plot(idx, col); if (idx === 1) plot(2, C.dc);
+      c2.fillStyle = C.muted; c2.font = '11px ' + css('--f-body'); c2.textAlign = 'left';
+      c2.fillText(`${lbl}, max ${mx < 0.1 ? mx.toFixed(3) : mx.toFixed(2)}`, 6, y0 + 12);
+    });
+    c2.textAlign = 'right'; c2.fillText('last 3 s', W - 6, 14);
+
+    // ---------- readouts ----------
+    const pmW = lab.pAvg * 1000;
+    $('#lp').textContent = pmW < 1 ? (pmW * 1000).toFixed(0) + ' µW' : pmW.toFixed(2) + ' mW';
+    $('#lv').textContent = lab.vPk.toFixed(2) + ' V';
+    const pd = pmW / (P.capVol * 1e6);
+    $('#lpd').textContent = pd < 0.01 ? (pd * 1000).toFixed(1) + ' µW/cm³' : pd.toFixed(3) + ' mW/cm³';
+    $('#lnodes').textContent = (pmW / NODE_MW).toFixed(1);
+    const tot = lab.ep.load + lab.ep.copper + lab.ep.viscous || 1e-12;
+    $('#lbars').innerHTML = [['To load (useful)', lab.ep.load, C.good], ['Coil copper loss', lab.ep.copper, C.solar], ['Ferrofluid viscous', lab.ep.viscous, C.okfh]]
+      .map(([n, v, c]) => `<div class="barrow"><span class="bn">${n}</span><i style="width:${(100 * v / tot).toFixed(1)}%;background:${c}"></i><span class="bv">${(v * 1000 < 1 ? (v * 1e6).toFixed(0) + ' µW' : (v * 1000).toFixed(2) + ' mW')}</span></div>`).join('');
+    const rlOpt = P.Rc + P.k * P.k / P.cv;
+    $('#lnote').innerHTML = `<table class="ptab"><tr><td>EMF</td><td>e = k v, k = ${P.k} V s/m</td></tr><tr><td>Coil R<sub>c</sub></td><td>${P.Rc} Ω/axis</td></tr><tr><td>R<sub>L,opt</sub> (linear theory)</td><td>R<sub>c</sub> + k²/c<sub>v</sub> = ${Math.round(P.Rc + P.k * P.k / P.cv)} Ω</td></tr><tr><td>R<sub>L,opt</sub> (rim-limited)</td><td>≈ R<sub>c</sub></td></tr><tr><td>Units for 5 kWh/day</td><td>${Math.round(208 / Math.max(1e-6, lab.pAvg)).toLocaleString()}</td></tr>${lab.tuneMsg ? '<tr><td>Last auto-tune</td><td>' + lab.tuneMsg + '</td></tr>' : ''}</table>`;
+  }
+
+  // =====================================================================
+  //  MODEL DOC
+  // =====================================================================
+  function buildModelDoc() {
+    const c = sim.cfg;
+    const tbl = rows => `<table class="ptab">${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
+    $('#modelDoc').innerHTML = `
+      <h2>Model parameters</h2>
+      <p>Grid model: energy balance, 1 min time step, two controllers on identical inputs. OKFH model: 2-DOF lumped mass, 0.2 ms time step.</p>
+      <div class="keys"><span><kbd>Space</kbd> play / pause</span><span><kbd>1</kbd>–<kbd>4</kbd> views</span><span><kbd>A</kbd> AI / rule-based</span><span><kbd>C</kbd> cloud front</span><span><kbd>S</kbd> load step</span><span><kbd>T</kbd> gasifier trip</span><span><kbd>W</kbd> bearing wear</span><span><kbd>R</kbd> rain 36 h</span><span><kbd>0</kbd> restart</span><span><kbd>F</kbd> full screen</span></div>
+      <div class="cols">
+        <div class="box"><h3>Sizing: ${G.PRESETS[S.preset].label}</h3>${tbl([
+          ['Daily demand', c.loadKWhDay + ' kWh/day'], ['Solar PV', c.pvKWp + ' kWp'], ['Battery (LFP)', c.bessKWh + ' kWh, ' + c.bessKW + ' kW'], ['Usable SoC window', '10 – 95 %'],
+          ['Biomass gasifier-genset', c.gasKW + ' kW, min load 40 %'], ['Hydro (run-of-river, ELC)', c.hydroKW + ' kW rated; flow 92 % rainy, 45 % dry'], ['Interlink converter', c.interKW + ' kW, η 96 %'], ['OKFH units', c.okfhUnits]])}
+          <p style="margin-top:8px;color:var(--muted);font-size:13px">${G.PRESETS[S.preset].note}</p></div>
+        <div class="box"><h3>Solar resource & PV</h3>${tbl([
+          ['Site', 'Obuasi, 6.2° N, 1.66° W'], ['Sun position', 'declination + equation of time'], ['Clear-sky GHI', 'Haurwitz × 0.86 turbidity'],
+          ['Cloud model', 'daily Markov regime + AR(1) + cloud passages'], ['Cell temperature', 'NOCT 45 °C'], ['Temp. coefficient', '−0.37 %/K'], ['System losses / MPPT', '12 % / 98 %']])}</div>
+        <div class="box"><h3>Biomass gasifier</h3>${tbl([
+          ['Feedstock', 'cassava peel, maize cob, rice husk'], ['Fuel use at rated load', '1.25 kg/kWh(e)'], ['Fuel use at 40 % load', '≈ 1.71 kg/kWh(e)'],
+          ['Warm-up before output', '15 min (gas quality)'], ['Minimum run time', '2 h (limits tar build-up)'], ['Warm-up fuel', '30 % of rated rate']])}</div>
+        <div class="box"><h3>Battery & conversion</h3>${tbl([
+          ['Chemistry', 'LiFePO₄'], ['Charge / discharge efficiency', '96 % / 96 %'], ['Round trip incl. interlink', '≈ 85 %'],
+          ['Grid forming', 'BESS inverter sets V & f'], ['Freq. transient', 'qualitative, scaled to ΔP / P_BESS'], ['AC bus', '230 V, 50 Hz (Ghana)']])}</div>
+        <div class="box"><h3>AI controller (MPC)</h3>${tbl([
+          ['Re-plans every', '15 min'], ['Horizon', '36 h'], ['PV forecast error', '5 % → 20 % (grows with lead time)'], ['Load forecast', 'profile, ± 6 %; random spikes unseen'],
+          ['Decision', 'start time × run length search'], ['Objective', 'fuel + unmet load + reserve breach + starts'], ['Reserve SoC', Math.round(G.AI.reserve * 100) + ' %'], ['Gasifier setpoint', 'rated output (best kg/kWh)'],
+          ['Predictive maintenance', 'OKFH-powered vibration nodes flag bearing wear; repair booked in a solar-surplus window']])}</div>
+        <div class="box"><h3>Rule-based controller</h3>${tbl([
+          ['Start gasifier', 'SoC ≤ ' + G.RULE.start * 100 + ' %'], ['Stop gasifier', 'SoC ≥ ' + G.RULE.stop * 100 + ' % (after 2 h)'], ['Setpoint', 'load-following + 15 % charging'],
+          ['Forecasts', 'none'], ['Condition monitoring', 'none (run to failure)']])}</div>
+        <div class="box"><h3>OKFH harvester</h3>${tbl([
+          ['Orb', 'Ø25 mm NdFeB sphere, 61 g'], ['Bowl radius of curvature', '35 mm (f₀ ≈ 2.7 Hz)'], ['Rim magnets', 'repulsive soft wall, F ∝ gap⁻³'],
+          ['Ferrofluid film damping', '0.004 N·s/m'], ['Coil transduction k', '3.0 V·s/m per axis'], ['Coil resistance', '400 Ω per axis'], ['Pole', 'tunable 1–30 Hz, ζ = 0.03'], ['Envelope volume', '≈ 380 cm³'], ['Sensor node budget', NODE_MW + ' mW average']])}</div>
+        <div class="box"><h3>Key equations</h3>
+          <p class="eq">P_pv = P_stc, G/1000, [1 + γ(T_c − 25)], η_sys</p>
+          <p class="eq">T_c = T_a + (NOCT − 20)/800, G</p>
+          <p class="eq">SoC⁺ = SoC + (η_c·P_ch − P_dis/η_d)·Δt / E_bat</p>
+          <p class="eq">P_hydro = ρ g Q H η</p>
+          <p class="eq">m ẍ = −m(g/R_b)x + m g θ − m a_tip − (c_v + k²/(R_c+R_L)) ẋ + F_rim</p>
+          <p class="eq">P_load = (k v)² R_L / (R_c + R_L)²</p>
+          <p class="eq">P_max ≈ m A² / (4 ζ ω)  (resonant harvester bound)</p></div>
+      </div>
+      <p style="color:var(--muted);font-size:13px">Note: weather and load are synthetic (seeded). Parameters are design estimates, to be replaced with pilot measurements.</p>`;
+  }
+
+  // =====================================================================
+  //  MAIN LOOP & UI
+  // =====================================================================
+  function setTab(v) {
+    S.tab = v;
+    document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.v === v));
+    document.querySelectorAll('section.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+    try { history.replaceState(null, '', '#' + v); } catch (e) { }
+    if (v === 'cmp' && !$('#benchOut').dataset.ran) { $('#benchOut').dataset.ran = 1; runBench(); }
+  }
+  function setView(v) {
+    S.view = v;
+    document.querySelectorAll('#ctlSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === v));
+    lastLogLen = -1;
+  }
+  function trigger(e) {
+    if (e === 'reset') { newSim(); banner('Restarted: D1 06:00'); return; }
+    sim.trigger(e);
+    const msg = { cloud: 'EVENT: cloud front (T+30 min, 4 h)', spike: 'EVENT: load step, clinic', trip: 'EVENT: gasifier trip', wear: 'EVENT: bearing degradation started', rain: 'EVENT: heavy rain, 36 h' }[e];
+    banner(msg);
+    if (!S.running) { S.running = true; syncPlay(); }
+  }
+  function syncPlay() { const b = $('#play'); b.textContent = S.running ? 'Pause' : 'Run'; b.setAttribute('aria-label', S.running ? 'Pause' : 'Play'); }
+
+  let frame = 0;
+  function loop(now) {
+    const dt = Math.min(0.1, (now - S.last) / 1000); S.last = now; S.t += dt;
+    if (S.running && sim) {
+      S.acc += dt * S.speed;
+      let n = 0; while (S.acc >= 1 && n < 400) { if (!sim.step()) { S.running = false; syncPlay(); banner('End of run (30 days). Press 0 to restart.'); break; } S.acc -= 1; n++; }
+    }
+    updateFreq(now);
+    $('#clock').textContent = G.fmtClock(sim.i);
+    if (frame % 15 === 0) $('#status').textContent = `${S.running ? 'Running' : 'Paused'} | t = ${G.fmtClock(sim.i)} | step 1 min | controller: ${S.view === 'ai' ? 'AI (MPC)' : 'rule-based'} | ${G.PRESETS[S.preset].label} | ${S.season} season | ${Math.round(1000 / Math.max(1, (S.dtAvg = (S.dtAvg || 16) * 0.95 + dt * 1000 * 0.05)))} fps`;
+    if (S.tab === 'system') {
+      renderSystem(dt);
+      if (frame % 2 === 0) renderTrend();
+      renderFreq();
+      if (frame % 6 === 0) renderRail();
+    } else if (S.tab === 'lab') { labStep(dt); renderLab(); }
+    else if (S.tab === 'cmp' && frame % 10 === 0) renderCompare();
+    frame++;
+    requestAnimationFrame(loop);
+  }
+
+  function init() {
+    readColors();
+    // calibrate OKFH unit output used by the grid model (AI-tuned unit on mixed road traffic)
+    try { okfhUnitW = O.benchmark('truck', 0.15, 3.0, 450, 6, 3); } catch (e) { }
+    newSim();
+    labInit();
+    document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => setTab(b.dataset.v));
+    document.querySelectorAll('#ctlSeg button').forEach(b => b.onclick = () => setView(b.dataset.c));
+    document.querySelectorAll('.scen button').forEach(b => b.onclick = () => trigger(b.dataset.e));
+    $('#play').onclick = () => { S.running = !S.running; syncPlay(); };
+    $('#speed').onchange = e => { S.speed = +e.target.value; };
+    $('#preset').onchange = e => { S.preset = e.target.value; newSim(); $('#benchOut').dataset.ran = ''; banner(G.PRESETS[S.preset].label); };
+    $('#season').onchange = e => { S.season = e.target.value; newSim(); $('#benchOut').dataset.ran = ''; banner(S.season === 'dry' ? 'Season: dry (Harmattan)' : 'Season: rainy'); };
+    $('#benchRun').onclick = runBench;
+    $('#benchPreset').onchange = runBench; $('#benchSeed').onchange = runBench;
+    $('#fs').onclick = () => { const d = document; if (!d.fullscreenElement) d.documentElement.requestFullscreen?.().catch(() => { }); else d.exitFullscreen?.(); };
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey) return;
+      const k = e.key.toLowerCase();
+      if (k === ' ') { e.preventDefault(); S.running = !S.running; syncPlay(); }
+      else if (k === 'c') trigger('cloud'); else if (k === 's') trigger('spike'); else if (k === 't') trigger('trip');
+      else if (k === 'w') trigger('wear'); else if (k === 'r') trigger('rain'); else if (k === '0') trigger('reset');
+      else if (k === 'a') setView(S.view === 'ai' ? 'rule' : 'ai');
+      else if (k === 'f') $('#fs').click();
+      else if (['1', '2', '3', '4'].includes(k)) setTab(['system', 'lab', 'cmp', 'model'][+k - 1]);
+    });
+    const h = (location.hash || '').slice(1); if (['system', 'lab', 'cmp', 'model'].includes(h)) setTab(h);
+    requestAnimationFrame(t => { S.last = t; loop(t); });
+  }
+  init();
+})();
+
+</script>
+
+
+</body>
+</html>
